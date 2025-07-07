@@ -1,0 +1,15 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read and write access to properties collection
+    match /properties/{document} {
+      allow read, write: if true; // For now, allow all access
+    }
+    
+    // Allow read and write access to history collection
+    match /history/{document} {
+      allow read, write: if true; // For now, allow all access
+    }
+  }
+}

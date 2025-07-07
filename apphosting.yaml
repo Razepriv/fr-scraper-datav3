@@ -1,0 +1,45 @@
+# Settings to manage and configure a Firebase App Hosting backend.
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Increase this value if you'd like to automatically spin up
+  # more instances in response to increased traffic.
+  maxInstances: 10
+  # Minimum instances for better performance
+  minInstances: 1
+  # CPU and memory allocation
+  cpu: 1
+  memoryMiB: 512
+
+# Environment variables for the runtime
+env:
+  - variable: NODE_ENV
+    value: production
+  - variable: STORAGE_TYPE
+    value: database
+  - variable: UPLOAD_PROVIDER
+    value: firebase
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyD2ScfODrkVf0zWaJdsjy_Mw4c09k0oM8Y
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: fr-toolv2.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: fr-toolv2
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: fr-toolv2.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "540549710523"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:540549710523:web:2d338f8b8ccd6e04019f9e
+  - variable: GEMINI_API_KEY
+    value: AIzaSyCBCVpX71GSGC7J0iRh_qCBwn74BXEU86A
+  - variable: ENABLE_BULK_DELETE
+    value: "true"
+  - variable: ENABLE_EXPORT
+    value: "true"
+  - variable: ENABLE_AI_FEATURES
+    value: "true"
+  - variable: MAX_PROPERTIES
+    value: "10000"
+  - variable: MAX_UPLOAD_SIZE
+    value: "10485760"
