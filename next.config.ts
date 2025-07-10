@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   
   // Configure images for SSR
   images: {
-    domains: ['firebasestorage.googleapis.com', 'fr-toolv2.firebasestorage.app'],
+    domains: ['firebasestorage.googleapis.com', 'fr-toolv2.firebasestorage.app', 'images.unsplash.com', 'placehold.co'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
       }
     ]
   },
