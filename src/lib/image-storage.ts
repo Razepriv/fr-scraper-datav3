@@ -504,7 +504,7 @@ export function createImageStorage(): ImageStorageAdapter {
     }
   }
 
-  // For development environments, use local storage unless specified otherwise
+  // For development environments, prioritize Firebase if configured
   switch (uploadProvider) {
     case 'firebase':
       if (ENV_CONFIG.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
@@ -530,8 +530,16 @@ export function createImageStorage(): ImageStorageAdapter {
       return new ExternalImageStorage();
 
     case 'local':
-    default:
       console.log('📸 Using Local filesystem image storage');
+      return new LocalImageStorage();
+      
+    default:
+      // Default to Firebase if configured, otherwise local
+      if (ENV_CONFIG.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+        console.log('📸 Using Firebase Storage (default)');
+        return new FirebaseStorageAdapter();
+      }
+      console.log('📸 Using Local filesystem image storage (default)');
       return new LocalImageStorage();
   }
 }

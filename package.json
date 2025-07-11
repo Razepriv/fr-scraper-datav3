@@ -15,7 +15,10 @@
     "build:hosting": "next build",
     "deploy": "firebase deploy",
     "deploy:apphosting": "firebase apphosting:deploy",
-    "deploy:ssr": "npm run build:ssr && firebase apphosting:deploy"
+    "deploy:ssr": "npm run build:ssr && firebase apphosting:deploy",
+    "upload-images": "node scripts/upload-images.js",
+    "upload-images:ts": "tsx scripts/bulk-upload-to-firebase.ts",
+    "test-firebase": "tsx scripts/test-firebase-storage.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",

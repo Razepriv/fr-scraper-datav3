@@ -127,60 +127,60 @@ const createNestedObject = (prop: Property) => {
   return {
     main: {
         id: prop.id,
-        title: prop.enhanced_title || prop.title, // Use enhanced title as primary
-        description: prop.enhanced_description || prop.description, // Use enhanced description as primary
-        price: extractPriceNumber(prop.price), // Extract only numeric value
-        property_type: prop.property_type,
-        what_do: prop.what_do,
-        furnish_type: prop.furnish_type,
-        rental_timing: prop.rental_timing,
-        tenant_type: prop.tenant_type,
-        scraped_at: prop.scraped_at,
-        original_url: prop.original_url,
+        title: prop.enhanced_title || prop.title || '', // Use enhanced title as primary
+        description: prop.enhanced_description || prop.description || '', // Use enhanced description as primary
+        price: extractPriceNumber(prop.price || ''), // Extract only numeric value
+        property_type: prop.property_type || '',
+        what_do: prop.what_do || '',
+        furnish_type: prop.furnish_type || '',
+        rental_timing: prop.rental_timing || '',
+        tenant_type: prop.tenant_type || '',
+        scraped_at: prop.scraped_at || '',
+        original_url: prop.original_url || '',
     },
     location: {
-        location: prop.location,
-        city: normalizeCityName(prop.city), // Use normalized city name
-        county: prop.county,
-        neighborhood: prop.neighborhood,
+        location: prop.location || '',
+        city: normalizeCityName(prop.city || ''), // Use normalized city name
+        county: prop.county || '',
+        neighborhood: prop.neighborhood || '',
     },
     property_details: {
-        bedrooms: prop.bedrooms,
-        bathrooms: prop.bathrooms,
-        area: extractAreaNumber(prop.area), // Extract only numeric value
-        floor_number: prop.floor_number,
-        building_information: prop.building_information,
+        bedrooms: prop.bedrooms || 0,
+        bathrooms: prop.bathrooms || 0,
+        area: extractAreaNumber(prop.area || ''), // Extract only numeric value
+        floor_number: prop.floor_number || 0,
+        building_information: prop.building_information || '',
     },
     features: {
-        features: prop.features,
+        features: prop.features || [],
     },
     images: {
-        image_url: getAbsoluteUrl(prop.image_url),
-        image_urls: prop.image_urls.map(getAbsoluteUrl),
+        image_url: getAbsoluteUrl(prop.image_url || ''),
+        image_urls: (prop.image_urls || []).map(getAbsoluteUrl),
     },
     legal: {
-        validated_information: prop.validated_information,
-        permit_number: prop.permit_number,
-        ded_license_number: prop.ded_license_number,
-        rera_registration_number: prop.rera_registration_number,
-        dld_brn: prop.dld_brn,
-        reference_id: prop.reference_id,
-        terms_and_condition: prop.terms_and_condition,
-        mortgage: prop.mortgage,
+        validated_information: prop.validated_information || '',
+        permit_number: prop.permit_number || '',
+        ded_license_number: prop.ded_license_number || '',
+        rera_registration_number: prop.rera_registration_number || '',
+        dld_brn: prop.dld_brn || '',
+        reference_id: prop.reference_id || '',
+        terms_and_condition: prop.terms_and_condition || '',
+        mortgage: prop.mortgage || '',
     },
     agent: {
-        listed_by_name: prop.listed_by_name,
-        listed_by_phone: prop.listed_by_phone,
-        listed_by_email: prop.listed_by_email,
+        listed_by_name: prop.listed_by_name || '',
+        listed_by_phone: prop.listed_by_phone || '',
+        listed_by_email: prop.listed_by_email || '',
     },
     ai_enhancements: {
-        enhanced_title: prop.enhanced_title,
-        enhanced_description: prop.enhanced_description,
-        original_title: prop.original_title,
-        original_description: prop.original_description,
+        enhanced_title: prop.enhanced_title || '',
+        enhanced_description: prop.enhanced_description || '',
+        original_title: prop.original_title || '',
+        original_description: prop.original_description || '',
     },
     matterport: {
-      matterportLink: prop.matterportLink
+      matterportLink: prop.matterportLink || ''
     }
   };
 };
@@ -211,72 +211,121 @@ export const downloadJson = (data: Property[], filename: string) => {
   saveAs(blob, `${filename}.json`);
 };
 
-// Function to download data as a CSV file
-export const downloadCsv = (data: Property[], filename:string) => {
+// Function to download data as a CSV file with all required headers
+export const downloadCsv = (data: Property[], filename: string) => {
     if (data.length === 0) {
         alert("No data to export.");
         return;
     }
     
+    // All required headers as specified
     const csvHeaders = [
-        'Title', 'Content', 'images', 'Matterport', 'Categories', 'Price', 'City', 'property_a',
-        'property_b', 'property_c', 'property_d', 'property_e', 'property_f',
-        'property_g', 'property_h', 'property_i', 'property_j', 'property_k',
-        'property_l', 'Features', 'Term and Condition'
+        'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
+        'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
+        'property_agent', 'Nationality', 'Religion', 'Tenant Type', 'Property Display Status',
+        'Property Gender Preference', 'Property Living Room', 'Property Approval Status',
+        'Property Furnishing Status', 'Property Minimum Stay', 'Property Maximum Stay',
+        'Property Minimum Notice', 'Property Bathroom', 'Property Bed', 'Property Room',
+        'Property Latitude', 'Property Longitude', 'Property Building', 'Property Owner Details',
+        'Content', 'Matterport Link', 'Categories', 'What do you rent ?', 'Property Discount',
+        'Property Deposit', 'Property Tax', 'Featured Property', 'Platinum Property',
+        'Premium Property', 'Feature and Ammenties', 'Term and Condition'
     ];
 
     const csvData = data.map(prop => ({
-        'Title': prop.enhanced_title || prop.title, // Use enhanced title as primary
-        'Content': prop.enhanced_description || prop.description, // Use enhanced description as primary
-        'images': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
-        'Matterport': prop.matterportLink,
-        'Categories': prop.what_do,
-        'Price': extractPriceNumber(prop.price), // Extract only numeric value
-        'City': normalizeCityName(prop.city), // Use normalized city name
-        'property_a': prop.bedrooms,
-        'property_b': prop.bathrooms,
-        'property_c': extractAreaNumber(prop.area), // Extract only numeric value
-        'property_d': prop.tenant_type,
-        'property_e': prop.rental_timing,
-        'property_f': prop.furnish_type,
-        'property_g': prop.floor_number,
-        'property_h': prop.permit_number,
-        'property_i': prop.ded_license_number,
-        'property_j': prop.rera_registration_number,
-        'property_k': prop.dld_brn,
-        'property_l': prop.reference_id,
-        'Features': (prop.features || []).join(' | '),
-        'Term and Condition': prop.terms_and_condition,
+        'Title': prop.enhanced_title || prop.title || '',
+        'City': normalizeCityName(prop.city || ''),
+        'Property Price': extractPriceNumber(prop.price || ''),
+        'Property Size': extractAreaNumber(prop.area || ''),
+        'Property Address': prop.location || '',
+        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
+        'Landlord Name': prop.listed_by_name || '',
+        'Landlord Email': prop.listed_by_email || '',
+        'Landlord Phone': prop.listed_by_phone || '',
+        'Property Country': 'UAE', // Default for UAE properties
+        'Neighborhood / Area': prop.neighborhood || prop.county || '',
+        'property_agent': prop.listed_by_name || '',
+        'Nationality': '', // Not available in current data
+        'Religion': '', // Not available in current data
+        'Tenant Type': prop.tenant_type || '',
+        'Property Display Status': 'Active', // Default status
+        'Property Gender Preference': '', // Not available in current data
+        'Property Living Room': '', // Not available in current data
+        'Property Approval Status': 'Approved', // Default status
+        'Property Furnishing Status': prop.furnish_type || '',
+        'Property Minimum Stay': '', // Not available in current data
+        'Property Maximum Stay': '', // Not available in current data
+        'Property Minimum Notice': '', // Not available in current data
+        'Property Bathroom': prop.bathrooms || 0,
+        'Property Bed': prop.bedrooms || 0,
+        'Property Room': prop.bedrooms || 0, // Using bedrooms as room count
+        'Property Latitude': '', // Not available in current data
+        'Property Longitude': '', // Not available in current data
+        'Property Building': prop.building_information || '',
+        'Property Owner Details': prop.listed_by_name || '',
+        'Content': prop.enhanced_description || prop.description || '',
+        'Matterport Link': prop.matterportLink || '',
+        'Categories': prop.property_type || '',
+        'What do you rent ?': prop.what_do || prop.property_type || '',
+        'Property Discount': '', // Not available in current data
+        'Property Deposit': '', // Not available in current data
+        'Property Tax': '', // Not available in current data
+        'Featured Property': 'No', // Default value
+        'Platinum Property': 'No', // Default value
+        'Premium Property': 'No', // Default value
+        'Feature and Ammenties': (prop.features || []).join(' | '),
+        'Term and Condition': prop.terms_and_condition || '',
     }));
 
     const worksheet = utils.json_to_sheet(csvData, { header: csvHeaders, skipHeader: false });
     
-    // Add the second row with example/condition data
-    const secondRow = {
-        'Title': 'Property Id',
-        'Content': 'Description',
-        'images': 'image URL 1 | image URL 2 | ...',
-        'Matterport': 'Matterport',
-        'Categories': 'Rental type',
-        'Price': 'Price (numbers only)',
-        'City': 'City (ajman/sharjah/dubai/abu dhabi)',
-        'property_a': 'Beds property',
-        'property_b': 'Baths property',
-        'property_c': 'Sqft property (numbers only)',
-        'property_d': 'Tenant Type',
-        'property_e': 'Rental Period',
-        'property_f': 'Furnish type',
-        'property_g': 'Floor number',
-        'property_h': 'DLD permit number',
-        'property_i': 'DED license number',
-        'property_j': 'Rera registration number',
-        'property_k': 'DLD BRN',
-        'property_l': 'Reference Id',
-        'Features': 'Take them with the | pipe SEPERATED',
-        'Term and Condition': 'Term and Condition (Check on website and update)',
+    // Add description row with field explanations
+    const descriptionRow = {
+        'Title': 'Property Title',
+        'City': 'City Name',
+        'Property Price': 'Price (numbers only)',
+        'Property Size': 'Size in sqft (numbers only)',
+        'Property Address': 'Full Address',
+        'Image': 'Image URLs separated by |',
+        'Landlord Name': 'Owner/Agent Name',
+        'Landlord Email': 'Contact Email',
+        'Landlord Phone': 'Contact Phone',
+        'Property Country': 'Country (UAE)',
+        'Neighborhood / Area': 'Area/Neighborhood',
+        'property_agent': 'Agent Name',
+        'Nationality': 'Owner Nationality',
+        'Religion': 'Religion Preference',
+        'Tenant Type': 'Tenant Type Preference',
+        'Property Display Status': 'Display Status',
+        'Property Gender Preference': 'Gender Preference',
+        'Property Living Room': 'Living Room Count',
+        'Property Approval Status': 'Approval Status',
+        'Property Furnishing Status': 'Furnishing Type',
+        'Property Minimum Stay': 'Minimum Stay Period',
+        'Property Maximum Stay': 'Maximum Stay Period',
+        'Property Minimum Notice': 'Notice Period',
+        'Property Bathroom': 'Bathroom Count',
+        'Property Bed': 'Bedroom Count',
+        'Property Room': 'Room Count',
+        'Property Latitude': 'GPS Latitude',
+        'Property Longitude': 'GPS Longitude',
+        'Property Building': 'Building Information',
+        'Property Owner Details': 'Owner Details',
+        'Content': 'Property Description',
+        'Matterport Link': 'Virtual Tour Link',
+        'Categories': 'Property Category',
+        'What do you rent ?': 'Rental Type',
+        'Property Discount': 'Discount Amount',
+        'Property Deposit': 'Security Deposit',
+        'Property Tax': 'Tax Information',
+        'Featured Property': 'Featured Status',
+        'Platinum Property': 'Platinum Status',
+        'Premium Property': 'Premium Status',
+        'Feature and Ammenties': 'Features and Amenities',
+        'Term and Condition': 'Terms and Conditions',
     };
-    const secondRowArray = csvHeaders.map(header => secondRow[header as keyof typeof secondRow] || '');
-    utils.sheet_add_aoa(worksheet, [secondRowArray], { origin: 'A2' });
+    const descriptionRowArray = csvHeaders.map(header => descriptionRow[header as keyof typeof descriptionRow] || '');
+    utils.sheet_add_aoa(worksheet, [descriptionRowArray], { origin: 'A2' });
 
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, 'Properties');
@@ -287,23 +336,80 @@ export const downloadCsv = (data: Property[], filename:string) => {
     saveAs(blob, `${filename}.csv`);
 };
 
-// Function to download data as an Excel file
+// Function to download data as an Excel file with complete headers
 export const downloadExcel = (data: Property[], filename: string) => {
-  const flattenedData = data.map(prop => flattenObject(createNestedObject(prop)));
-
-    if (flattenedData.length === 0) {
+    if (data.length === 0) {
         alert("No data to export.");
         return;
     }
-  
-  const worksheet = utils.json_to_sheet(flattenedData);
-  const workbook = utils.book_new();
-  utils.book_append_sheet(workbook, worksheet, 'Properties');
 
-  // Generate XLSX output
-  const excelBuffer = write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-  saveAs(blob, `${filename}.xlsx`);
+    // Complete headers as specified
+    const excelHeaders = [
+        'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
+        'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
+        'property_agent', 'Nationality', 'Religion', 'Tenant Type', 'Property Display Status',
+        'Property Gender Preference', 'Property Living Room', 'Property Approval Status',
+        'Property Furnishing Status', 'Property Minimum Stay', 'Property Maximum Stay',
+        'Property Minimum Notice', 'Property Bathroom', 'Property Bed', 'Property Room',
+        'Property Latitude', 'Property Longitude', 'Property Building', 'Property Owner Details',
+        'Content', 'Matterport Link', 'Categories', 'What do you rent ?', 'Property Discount',
+        'Property Deposit', 'Property Tax', 'Featured Property', 'Platinum Property',
+        'Premium Property', 'Feature and Ammenties', 'Term and Condition'
+    ];
+
+    const excelData = data.map(prop => ({
+        'Title': prop.enhanced_title || prop.title || '',
+        'City': normalizeCityName(prop.city || ''),
+        'Property Price': extractPriceNumber(prop.price || ''),
+        'Property Size': extractAreaNumber(prop.area || ''),
+        'Property Address': prop.location || '',
+        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
+        'Landlord Name': prop.listed_by_name || '',
+        'Landlord Email': prop.listed_by_email || '',
+        'Landlord Phone': prop.listed_by_phone || '',
+        'Property Country': 'UAE',
+        'Neighborhood / Area': prop.neighborhood || prop.county || '',
+        'property_agent': prop.listed_by_name || '',
+        'Nationality': '',
+        'Religion': '',
+        'Tenant Type': prop.tenant_type || '',
+        'Property Display Status': 'Active',
+        'Property Gender Preference': '',
+        'Property Living Room': '',
+        'Property Approval Status': 'Approved',
+        'Property Furnishing Status': prop.furnish_type || '',
+        'Property Minimum Stay': '',
+        'Property Maximum Stay': '',
+        'Property Minimum Notice': '',
+        'Property Bathroom': prop.bathrooms || 0,
+        'Property Bed': prop.bedrooms || 0,
+        'Property Room': prop.bedrooms || 0,
+        'Property Latitude': '',
+        'Property Longitude': '',
+        'Property Building': prop.building_information || '',
+        'Property Owner Details': prop.listed_by_name || '',
+        'Content': prop.enhanced_description || prop.description || '',
+        'Matterport Link': prop.matterportLink || '',
+        'Categories': prop.property_type || '',
+        'What do you rent ?': prop.what_do || prop.property_type || '',
+        'Property Discount': '',
+        'Property Deposit': '',
+        'Property Tax': '',
+        'Featured Property': 'No',
+        'Platinum Property': 'No',
+        'Premium Property': 'No',
+        'Feature and Ammenties': (prop.features || []).join(' | '),
+        'Term and Condition': prop.terms_and_condition || '',
+    }));
+  
+    const worksheet = utils.json_to_sheet(excelData, { header: excelHeaders });
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, 'Properties');
+
+    // Generate XLSX output
+    const excelBuffer = write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    saveAs(blob, `${filename}.xlsx`);
 };
 
 // Enhanced export functions with filtering metadata
@@ -326,11 +432,18 @@ export const downloadFilteredCsv = (data: Property[], filename: string, filterIn
         return;
     }
     
+    // Complete headers as specified
     const csvHeaders = [
-        'Export Info', 'Title', 'Content', 'images', 'Matterport', 'Categories', 'Price', 'City', 'property_a',
-        'property_b', 'property_c', 'property_d', 'property_e', 'property_f',
-        'property_g', 'property_h', 'property_i', 'property_j', 'property_k',
-        'property_l', 'Features', 'Term and Condition', 'Scraped Date'
+        'Export Info', 'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
+        'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
+        'property_agent', 'Nationality', 'Religion', 'Tenant Type', 'Property Display Status',
+        'Property Gender Preference', 'Property Living Room', 'Property Approval Status',
+        'Property Furnishing Status', 'Property Minimum Stay', 'Property Maximum Stay',
+        'Property Minimum Notice', 'Property Bathroom', 'Property Bed', 'Property Room',
+        'Property Latitude', 'Property Longitude', 'Property Building', 'Property Owner Details',
+        'Content', 'Matterport Link', 'Categories', 'What do you rent ?', 'Property Discount',
+        'Property Deposit', 'Property Tax', 'Featured Property', 'Platinum Property',
+        'Premium Property', 'Feature and Ammenties', 'Term and Condition', 'Scraped Date'
     ];
 
     // Add metadata row
@@ -341,28 +454,49 @@ export const downloadFilteredCsv = (data: Property[], filename: string, filterIn
 
     const csvData = data.map(prop => ({
         'Export Info': '', // Empty for data rows
-        'Title': prop.enhanced_title || prop.title, // Use enhanced title as primary
-        'Content': prop.enhanced_description || prop.description, // Use enhanced description as primary
-        'images': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
-        'Matterport': prop.matterportLink,
-        'Categories': prop.what_do,
-        'Price': extractPriceNumber(prop.price), // Extract only numeric value
-        'City': normalizeCityName(prop.city), // Use normalized city name
-        'property_a': prop.bedrooms,
-        'property_b': prop.bathrooms,
-        'property_c': extractAreaNumber(prop.area), // Extract only numeric value
-        'property_d': prop.tenant_type,
-        'property_e': prop.rental_timing,
-        'property_f': prop.furnish_type,
-        'property_g': prop.floor_number,
-        'property_h': prop.permit_number,
-        'property_i': prop.ded_license_number,
-        'property_j': prop.rera_registration_number,
-        'property_k': prop.dld_brn,
-        'property_l': prop.reference_id,
-        'Features': (prop.features || []).join(' | '),
-        'Term and Condition': prop.terms_and_condition,
-        'Scraped Date': new Date(prop.scraped_at).toLocaleDateString(),
+        'Title': prop.enhanced_title || prop.title || '',
+        'City': normalizeCityName(prop.city || ''),
+        'Property Price': extractPriceNumber(prop.price || ''),
+        'Property Size': extractAreaNumber(prop.area || ''),
+        'Property Address': prop.location || '',
+        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
+        'Landlord Name': prop.listed_by_name || '',
+        'Landlord Email': prop.listed_by_email || '',
+        'Landlord Phone': prop.listed_by_phone || '',
+        'Property Country': 'UAE',
+        'Neighborhood / Area': prop.neighborhood || prop.county || '',
+        'property_agent': prop.listed_by_name || '',
+        'Nationality': '',
+        'Religion': '',
+        'Tenant Type': prop.tenant_type || '',
+        'Property Display Status': 'Active',
+        'Property Gender Preference': '',
+        'Property Living Room': '',
+        'Property Approval Status': 'Approved',
+        'Property Furnishing Status': prop.furnish_type || '',
+        'Property Minimum Stay': '',
+        'Property Maximum Stay': '',
+        'Property Minimum Notice': '',
+        'Property Bathroom': prop.bathrooms || 0,
+        'Property Bed': prop.bedrooms || 0,
+        'Property Room': prop.bedrooms || 0,
+        'Property Latitude': '',
+        'Property Longitude': '',
+        'Property Building': prop.building_information || '',
+        'Property Owner Details': prop.listed_by_name || '',
+        'Content': prop.enhanced_description || prop.description || '',
+        'Matterport Link': prop.matterportLink || '',
+        'Categories': prop.property_type || '',
+        'What do you rent ?': prop.what_do || prop.property_type || '',
+        'Property Discount': '',
+        'Property Deposit': '',
+        'Property Tax': '',
+        'Featured Property': 'No',
+        'Platinum Property': 'No',
+        'Premium Property': 'No',
+        'Feature and Ammenties': (prop.features || []).join(' | '),
+        'Term and Condition': prop.terms_and_condition || '',
+        'Scraped Date': new Date(prop.scraped_at || new Date()).toLocaleDateString(),
     }));
 
     const worksheet = utils.json_to_sheet([]);
@@ -415,25 +549,76 @@ export const downloadFilteredCsv = (data: Property[], filename: string, filterIn
 };
 
 export const downloadFilteredExcel = (data: Property[], filename: string, filterInfo?: string) => {
-  const flattenedData = data.map(prop => flattenObject(createNestedObject(prop)));
+    if (data.length === 0) {
+        alert("No data to export.");
+        return;
+    }
 
-  if (flattenedData.length === 0) {
-      alert("No data to export.");
-      return;
-  }
+    // Complete headers as specified
+    const excelHeaders = [
+        'Export Info', 'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
+        'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
+        'property_agent', 'Nationality', 'Religion', 'Tenant Type', 'Property Display Status',
+        'Property Gender Preference', 'Property Living Room', 'Property Approval Status',
+        'Property Furnishing Status', 'Property Minimum Stay', 'Property Maximum Stay',
+        'Property Minimum Notice', 'Property Bathroom', 'Property Bed', 'Property Room',
+        'Property Latitude', 'Property Longitude', 'Property Building', 'Property Owner Details',
+        'Content', 'Matterport Link', 'Categories', 'What do you rent ?', 'Property Discount',
+        'Property Deposit', 'Property Tax', 'Featured Property', 'Platinum Property',
+        'Premium Property', 'Feature and Ammenties', 'Term and Condition', 'Scraped Date'
+    ];
 
-  // Add metadata to each row
-  const enhancedData = flattenedData.map((row, index) => ({
-    export_date: new Date().toISOString(),
-    record_number: index + 1,
-    total_records: data.length,
-    filter_applied: filterInfo || 'No filter applied',
-    ...row
-  }));
+    // Add metadata to each row
+    const enhancedData = data.map((prop, index) => ({
+        'Export Info': index === 0 ? `Export Date: ${new Date().toLocaleDateString()}, Records: ${data.length}, Filter: ${filterInfo || 'None'}` : '',
+        'Title': prop.enhanced_title || prop.title || '',
+        'City': normalizeCityName(prop.city || ''),
+        'Property Price': extractPriceNumber(prop.price || ''),
+        'Property Size': extractAreaNumber(prop.area || ''),
+        'Property Address': prop.location || '',
+        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
+        'Landlord Name': prop.listed_by_name || '',
+        'Landlord Email': prop.listed_by_email || '',
+        'Landlord Phone': prop.listed_by_phone || '',
+        'Property Country': 'UAE',
+        'Neighborhood / Area': prop.neighborhood || prop.county || '',
+        'property_agent': prop.listed_by_name || '',
+        'Nationality': '',
+        'Religion': '',
+        'Tenant Type': prop.tenant_type || '',
+        'Property Display Status': 'Active',
+        'Property Gender Preference': '',
+        'Property Living Room': '',
+        'Property Approval Status': 'Approved',
+        'Property Furnishing Status': prop.furnish_type || '',
+        'Property Minimum Stay': '',
+        'Property Maximum Stay': '',
+        'Property Minimum Notice': '',
+        'Property Bathroom': prop.bathrooms || 0,
+        'Property Bed': prop.bedrooms || 0,
+        'Property Room': prop.bedrooms || 0,
+        'Property Latitude': '',
+        'Property Longitude': '',
+        'Property Building': prop.building_information || '',
+        'Property Owner Details': prop.listed_by_name || '',
+        'Content': prop.enhanced_description || prop.description || '',
+        'Matterport Link': prop.matterportLink || '',
+        'Categories': prop.property_type || '',
+        'What do you rent ?': prop.what_do || prop.property_type || '',
+        'Property Discount': '',
+        'Property Deposit': '',
+        'Property Tax': '',
+        'Featured Property': 'No',
+        'Platinum Property': 'No',
+        'Premium Property': 'No',
+        'Feature and Ammenties': (prop.features || []).join(' | '),
+        'Term and Condition': prop.terms_and_condition || '',
+        'Scraped Date': new Date(prop.scraped_at || new Date()).toLocaleDateString(),
+    }));
   
-  const worksheet = utils.json_to_sheet(enhancedData);
-  const workbook = utils.book_new();
-  utils.book_append_sheet(workbook, worksheet, 'Properties');
+    const worksheet = utils.json_to_sheet(enhancedData, { header: excelHeaders });
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, 'Properties');
 
   // Generate XLSX output
   const excelBuffer = write(workbook, { bookType: 'xlsx', type: 'array' });

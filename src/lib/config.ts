@@ -12,7 +12,7 @@ export const ENV_CONFIG = {
   FIREBASE_CONFIG: process.env.FIREBASE_CONFIG,
   
   // File upload settings
-  UPLOAD_PROVIDER: process.env.UPLOAD_PROVIDER || 'local', // 'local', 'cloudinary', 's3'
+  UPLOAD_PROVIDER: process.env.UPLOAD_PROVIDER || 'firebase', // 'local', 'firebase', 'cloudinary', 's3'
   CLOUDINARY_URL: process.env.CLOUDINARY_URL,
   AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
@@ -54,8 +54,8 @@ export const validateProductionConfig = () => {
       errors.push('NEXT_PUBLIC_BASE_URL must be set to production domain');
     }
     
-    if (ENV_CONFIG.UPLOAD_PROVIDER !== 'local' && !ENV_CONFIG.CLOUDINARY_URL && !ENV_CONFIG.AWS_S3_BUCKET) {
-      errors.push('Cloud storage configuration required for production file uploads');
+    if (ENV_CONFIG.UPLOAD_PROVIDER !== 'local' && !ENV_CONFIG.CLOUDINARY_URL && !ENV_CONFIG.AWS_S3_BUCKET && !ENV_CONFIG.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+      errors.push('Cloud storage configuration required for production file uploads (Cloudinary, S3, or Firebase)');
     }
   }
   

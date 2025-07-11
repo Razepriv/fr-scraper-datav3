@@ -40,7 +40,15 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
       setFilteredProperties(filtered);
       setStats(exportStats);
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to apply filters." });
+      console.error('Filter error:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Filter Error", 
+        description: `Failed to apply filters. Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+      // Reset to all properties on error
+      setFilteredProperties(allProperties);
+      setStats(null);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +72,7 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
     return parts.length > 0 ? parts.join(', ') : 'All properties';
   };
 
-  const handleExport = (format: 'json' | 'csv' | 'excel') => {
+  const handleExport = async (format: 'json' | 'csv' | 'excel') => {
     if (filteredProperties.length === 0) {
       toast({ variant: "destructive", title: "No Data", description: "No properties match the current filters." });
       return;
@@ -81,18 +89,23 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
     try {
       switch (format) {
         case 'json':
-          downloadFilteredJson(filteredProperties, filename, filterInfo);
+          await downloadFilteredJson(filteredProperties, filename, filterInfo);
           break;
         case 'csv':
-          downloadFilteredCsv(filteredProperties, filename, filterInfo);
+          await downloadFilteredCsv(filteredProperties, filename, filterInfo);
           break;
         case 'excel':
-          downloadFilteredExcel(filteredProperties, filename, filterInfo);
+          await downloadFilteredExcel(filteredProperties, filename, filterInfo);
           break;
       }
-      toast({ title: "Success", description: `${format.toUpperCase()} export completed!` });
+      toast({ title: "Success", description: `${format.toUpperCase()} export completed successfully! File: ${filename}.${format === 'excel' ? 'xlsx' : format}` });
     } catch (error) {
-      toast({ variant: "destructive", title: "Export Failed", description: `Failed to export ${format.toUpperCase()} file.` });
+      console.error('Export error:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Export Failed", 
+        description: `Failed to export ${format.toUpperCase()} file. Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
     }
   };
 

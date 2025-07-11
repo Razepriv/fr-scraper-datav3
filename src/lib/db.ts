@@ -198,7 +198,7 @@ export async function getFilteredProperties(filter?: ExportFilter): Promise<Prop
         }
 
         // Property type filtering
-        if (filter.propertyType && property.property_type.toLowerCase() !== filter.propertyType.toLowerCase()) {
+        if (filter.propertyType && property.property_type?.toLowerCase() !== filter.propertyType.toLowerCase()) {
             return false;
         }
 
@@ -206,17 +206,17 @@ export async function getFilteredProperties(filter?: ExportFilter): Promise<Prop
         if (filter.location) {
             const searchLocation = filter.location.toLowerCase();
             const locationMatch = 
-                property.location.toLowerCase().includes(searchLocation) ||
-                property.city.toLowerCase().includes(searchLocation) ||
-                property.county.toLowerCase().includes(searchLocation) ||
-                property.neighborhood.toLowerCase().includes(searchLocation);
+                (property.location?.toLowerCase().includes(searchLocation)) ||
+                (property.city?.toLowerCase().includes(searchLocation)) ||
+                (property.county?.toLowerCase().includes(searchLocation)) ||
+                (property.neighborhood?.toLowerCase().includes(searchLocation));
             if (!locationMatch) return false;
         }
 
         // Price filtering
         if (filter.minPrice || filter.maxPrice) {
             // Extract numeric value from price string
-            const priceMatch = property.price.match(/[\d,]+/);
+            const priceMatch = property.price?.match(/[\d,]+/);
             if (priceMatch) {
                 const price = parseInt(priceMatch[0].replace(/,/g, ''));
                 if (filter.minPrice && price < filter.minPrice) return false;
