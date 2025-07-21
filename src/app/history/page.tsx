@@ -1,7 +1,7 @@
-import { getHistory } from '@/lib/db';
-import { HistoryTable } from '@/components/app/history-table';
+import { getHistory } from '../../lib/db';
+import { HistoryTable } from '../../components/app/history-table';
 import { Suspense } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '../../components/ui/skeleton';
 
 export default async function History() {
   const history = await getHistory();

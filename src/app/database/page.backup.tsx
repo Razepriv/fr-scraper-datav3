@@ -1,3 +1,4 @@
+// Test file to check module resolution
 import { getDb } from '../../lib/db';
 import { DatabasePage } from '../../components/app/database-page';
 import { Suspense } from 'react';

@@ -1,12 +1,17 @@
 import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
-  // Optimized for Vercel deployment
-  // Remove output config for SSR on Vercel
+  // Optimized for both Vercel and Firebase App Hosting deployment
   
   // Disable ESLint during production builds for faster deployment
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  
+  // TypeScript configuration for better module resolution
+  typescript: {
+    ignoreBuildErrors: false,
   },
   
   // Configure images for SSR
@@ -51,6 +56,33 @@ const nextConfig: NextConfig = {
         process.env.NEXT_PUBLIC_BASE_URL || ''
       ].filter(Boolean)
     }
+  },
+  
+  // Webpack configuration for better module resolution in Firebase App Hosting
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Ensure path aliases work in all environments
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.join(__dirname, 'src'),
+    };
+    
+    // Optimize bundle for Firebase App Hosting
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks.cacheGroups,
+          firebase: {
+            test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
+            name: 'firebase',
+            chunks: 'all',
+            priority: 30,
+          },
+        },
+      };
+    }
+    
+    return config;
   },
 
   // Environment variables validation
