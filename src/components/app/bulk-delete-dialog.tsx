@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { type Property } from '@/lib/types';
 import { type ExportFilter } from '@/lib/db';
-import { bulkDeleteProperties, deleteAllProperties, deleteFilteredProperties } from '@/app/actions';
+import { bulkDeleteProperties, deleteAllProperties, deleteFilteredProperties } from '@/lib/client-actions';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -133,12 +133,16 @@ export function BulkDeleteDialog({
           try {
             const propertyIds = selectedProperties.map(p => p.id);
             const result = await bulkDeleteProperties(propertyIds);
-            onPropertiesDeleted(result.deletedCount);
-            setIsOpen(false);
-            toast({ 
-              title: "Properties deleted", 
-              description: `Successfully deleted ${result.deletedCount} properties.` 
-            });
+            if (result.success && result.result) {
+              onPropertiesDeleted(result.result.deletedCount);
+              setIsOpen(false);
+              toast({ 
+                title: "Properties deleted", 
+                description: `Successfully deleted ${result.result.deletedCount} properties.` 
+              });
+            } else {
+              toast({ variant: "destructive", title: "Error", description: result.message || "Failed to delete properties." });
+            }
           } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to delete properties." });
           }
@@ -163,12 +167,16 @@ export function BulkDeleteDialog({
         startTransition(async () => {
           try {
             const result = await deleteFilteredProperties(filter);
-            onPropertiesDeleted(result.deletedCount);
-            setIsOpen(false);
-            toast({ 
-              title: "Properties deleted", 
-              description: `Successfully deleted ${result.deletedCount} properties. ${result.remainingCount} properties remain.` 
-            });
+            if (result.success && result.result) {
+              onPropertiesDeleted(result.result.deletedCount);
+              setIsOpen(false);
+              toast({ 
+                title: "Properties deleted", 
+                description: `Successfully deleted ${result.result.deletedCount} properties. ${result.result.remainingCount} properties remain.` 
+              });
+            } else {
+              toast({ variant: "destructive", title: "Error", description: result.message || "Failed to delete filtered properties." });
+            }
           } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to delete filtered properties." });
           }
@@ -186,13 +194,17 @@ export function BulkDeleteDialog({
       action: () => {
         startTransition(async () => {
           try {
-            const deletedCount = await deleteAllProperties();
-            onPropertiesDeleted(deletedCount);
-            setIsOpen(false);
-            toast({ 
-              title: "All properties deleted", 
-              description: `Successfully deleted all ${deletedCount} properties.` 
-            });
+            const result = await deleteAllProperties();
+            if (result.success && result.deletedCount !== undefined) {
+              onPropertiesDeleted(result.deletedCount);
+              setIsOpen(false);
+              toast({ 
+                title: "All properties deleted", 
+                description: `Successfully deleted all ${result.deletedCount} properties.` 
+              });
+            } else {
+              toast({ variant: "destructive", title: "Error", description: result.message || "Failed to delete all properties." });
+            }
           } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to delete all properties." });
           }

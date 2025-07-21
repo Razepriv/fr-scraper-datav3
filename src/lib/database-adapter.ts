@@ -449,27 +449,43 @@ class InMemoryAdapter implements DatabaseAdapter {
 
 // Database adapter factory
 export function createDatabaseAdapter(): DatabaseAdapter {
-  if (ENV_CONFIG.isServerless() || ENV_CONFIG.STORAGE_TYPE === 'memory') {
-    console.log('📁 Using In-Memory database adapter');
+  console.log(`🔍 Environment check - NODE_ENV: ${ENV_CONFIG.NODE_ENV}, STORAGE_TYPE: ${ENV_CONFIG.STORAGE_TYPE}, isServerless: ${ENV_CONFIG.isServerless()}, Firebase Project: ${ENV_CONFIG.NEXT_PUBLIC_FIREBASE_PROJECT_ID}`);
+  
+  // Check for explicit memory storage first
+  if (ENV_CONFIG.STORAGE_TYPE === 'memory') {
+    console.log('📁 Using In-Memory database adapter (explicit memory config)');
     return new InMemoryAdapter();
   }
   
-  if (ENV_CONFIG.STORAGE_TYPE === 'filesystem' || ENV_CONFIG.isDevelopment()) {
-    console.log('📁 Using Filesystem database adapter');
-    return new FilesystemAdapter();
-  }
-  
-  // Add database storage types
+  // Check for database/firestore storage
   if (ENV_CONFIG.STORAGE_TYPE === 'database' || ENV_CONFIG.STORAGE_TYPE === 'firestore') {
     if (ENV_CONFIG.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-      console.log('📁 Using Firestore database adapter');
+      console.log('📁 Using Firestore database adapter (configured for database storage)');
       return new FirestoreAdapter();
     }
     console.log('⚠️ Database storage requested but no Firebase configured, using in-memory');
     return new InMemoryAdapter();
   }
   
-  console.log(`⚠️ Unknown storage type: ${ENV_CONFIG.STORAGE_TYPE}, using in-memory adapter`);
+  // Check for filesystem storage (development only)
+  if (ENV_CONFIG.STORAGE_TYPE === 'filesystem' && ENV_CONFIG.isDevelopment()) {
+    console.log('📁 Using Filesystem database adapter (development)');
+    return new FilesystemAdapter();
+  }
+  
+  // Default to Firestore for production if Firebase is configured
+  if (ENV_CONFIG.isProduction() && ENV_CONFIG.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+    console.log('📁 Using Firestore database adapter (production default with Firebase)');
+    return new FirestoreAdapter();
+  }
+  
+  // Fallback to in-memory for serverless without explicit storage config
+  if (ENV_CONFIG.isServerless()) {
+    console.log('📁 Using In-Memory database adapter (serverless fallback)');
+    return new InMemoryAdapter();
+  }
+  
+  console.log(`⚠️ No suitable adapter found for storage type: ${ENV_CONFIG.STORAGE_TYPE}, using in-memory adapter`);
   return new InMemoryAdapter();
 }
 

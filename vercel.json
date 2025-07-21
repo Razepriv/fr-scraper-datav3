@@ -9,6 +9,7 @@
     "NODE_ENV": "production",
     "STORAGE_TYPE": "database",
     "UPLOAD_PROVIDER": "firebase",
+    "GEMINI_API_KEY": "",
     "ENABLE_BULK_DELETE": "true",
     "ENABLE_EXPORT": "true",
     "ENABLE_AI_FEATURES": "true",

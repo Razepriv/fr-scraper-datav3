@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { type Property } from '@/lib/types';
-import { deleteProperty, updateProperty } from '@/app/actions';
+import { deleteProperty, updateProperty } from '@/lib/client-actions';
 import { DatabaseTable } from '@/components/app/database-table';
 import { EditDialog } from '@/components/app/edit-dialog';
 import { ExportDialog } from '@/components/app/export-dialog';
@@ -71,9 +71,13 @@ export function DatabasePage({ initialProperties }: DatabasePageProps) {
   const handleDelete = (propertyId: string) => {
     startTransition(async () => {
       try {
-        await deleteProperty(propertyId);
-        setProperties(prev => prev.filter(p => p.id !== propertyId));
-        toast({ title: "Success", description: "Property deleted." });
+        const result = await deleteProperty(propertyId);
+        if (result.success) {
+          setProperties(prev => prev.filter(p => p.id !== propertyId));
+          toast({ title: "Success", description: "Property deleted." });
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message || "Failed to delete property." });
+        }
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Failed to delete property." });
       }
@@ -88,11 +92,15 @@ export function DatabasePage({ initialProperties }: DatabasePageProps) {
   const handleSave = (updatedProperty: Property) => {
     startTransition(async () => {
       try {
-        await updateProperty(updatedProperty);
-        setProperties(prev => prev.map(p => p.id === updatedProperty.id ? updatedProperty : p));
-        toast({ title: "Success", description: "Property updated." });
-        setIsEditDialogOpen(false);
-        setSelectedProperty(null);
+        const result = await updateProperty(updatedProperty);
+        if (result.success) {
+          setProperties(prev => prev.map(p => p.id === updatedProperty.id ? updatedProperty : p));
+          toast({ title: "Success", description: "Property updated." });
+          setIsEditDialogOpen(false);
+          setSelectedProperty(null);
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message || "Failed to update property." });
+        }
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Failed to update property." });
       }
