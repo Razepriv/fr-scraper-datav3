@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-07-05T06:17:31.487Z",
+  "timestamp": "2025-07-21T04:22:43.078Z",
   "exportHelpers": true,
   "databaseAbstraction": 1,
   "typeScript": true,
   "packageConfig": true,
   "environmentConfig": 1,
-  "productionBuild": true
+  "productionBuild": false
 }

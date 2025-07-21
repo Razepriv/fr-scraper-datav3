@@ -308,22 +308,33 @@ class FirebaseStorageAdapter implements ImageStorageAdapter {
 
   private async uploadViaSDK(buffer: Buffer, propertyId: string, imageIndex: number, contentType?: string): Promise<string> {
     const { getFirebaseStorage } = await import('@/lib/firebase');
-    const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+    const { ref, uploadBytes } = await import('firebase/storage');
 
     const storage = getFirebaseStorage();
-    const fileName = `properties/${propertyId}/${imageIndex}-${Date.now()}.${this.getFileExtension(contentType || 'image/jpeg')}`;
+    
+    // Determine file extension from content type
+    const extension = this.getFileExtension(contentType || 'image/jpeg');
+    const fileName = `properties/${propertyId}/${imageIndex}-${Date.now()}.${extension}`;
     const storageRef = ref(storage, fileName);
 
     try {
       const metadata = {
         contentType: contentType || 'image/jpeg',
+        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+        customMetadata: {
+          'public': 'true',
+          'propertyId': propertyId,
+          'imageIndex': imageIndex.toString()
+        }
       };
       
       const snapshot = await uploadBytes(storageRef, buffer, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
       
-      console.log(`✅ Image uploaded to Firebase Storage via SDK: ${downloadURL}`);
-      return downloadURL;
+      // Generate public URL without authentication token - this works with public storage rules
+      const publicUrl = `https://storage.googleapis.com/${this.bucket}/${fileName}`;
+      
+      console.log(`✅ Image uploaded to Firebase Storage via SDK (PUBLIC): ${publicUrl}`);
+      return publicUrl;
     } catch (error) {
       console.error('❌ Firebase SDK upload failed:', error);
       throw error;
@@ -331,19 +342,17 @@ class FirebaseStorageAdapter implements ImageStorageAdapter {
   }
 
   private async uploadViaRestAPI(buffer: Buffer, fileName: string, contentType?: string): Promise<string> {
-    // For Firebase hosting, we'll use a simpler approach with public uploads
-    // This creates a publicly accessible URL without authentication
-    
-    // Convert buffer to base64 for Firebase Storage upload
-    const base64Data = buffer.toString('base64');
-    
-    // Create a unique file path
-    const timestamp = Date.now();
-    const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const fullPath = `${safeFileName}_${timestamp}`;
+    // For Firebase Storage REST API with public access
+    // This creates a publicly accessible URL without authentication tokens
     
     try {
-      // Use Firebase Storage REST API for uploads
+      // Create proper file path with extension
+      const extension = this.getFileExtension(contentType || 'image/jpeg');
+      const timestamp = Date.now();
+      const safeFileName = fileName.replace(/\.[^.]*$/, ''); // Remove existing extension
+      const fullPath = `${safeFileName}-${timestamp}.${extension}`;
+      
+      // Use Firebase Storage REST API for uploads with public access
       const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${this.bucket}/o?name=${encodeURIComponent(fullPath)}&uploadType=media`;
       
       const response = await fetch(uploadUrl, {
@@ -356,17 +365,21 @@ class FirebaseStorageAdapter implements ImageStorageAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
-      // Create download URL
-      const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${this.bucket}/o/${encodeURIComponent(fullPath)}?alt=media`;
+      // Create public URL without authentication token - works with public storage rules
+      const publicUrl = `https://storage.googleapis.com/${this.bucket}/${fullPath}`;
       
-      console.log(`✅ Image uploaded to Firebase Storage: ${downloadUrl}`);
-      return downloadUrl;
+      console.log(`✅ Image uploaded to Firebase Storage via REST API (PUBLIC): ${publicUrl}`);
+      return publicUrl;
     } catch (error) {
+      console.error('❌ Firebase REST API upload failed:', error);
+      
       // Fallback: create a data URL for small images
       if (buffer.length < 512 * 1024) {
+        const base64Data = buffer.toString('base64');
         const dataUrl = `data:${contentType || 'image/jpeg'};base64,${base64Data}`;
         console.log(`⚠️ Firebase upload failed, using data URL (${buffer.length} bytes)`);
         return dataUrl;
@@ -465,10 +478,35 @@ class FirebaseStorageAdapter implements ImageStorageAdapter {
       'image/webp': 'webp',
       'image/bmp': 'bmp',
       'image/tiff': 'tiff',
-      'image/svg+xml': 'svg'
+      'image/tif': 'tif',
+      'image/svg+xml': 'svg',
+      'image/avif': 'avif',
+      'image/heic': 'heic',
+      'image/heif': 'heif'
     };
 
     return mimeTypeMap[contentType.toLowerCase()] || 'jpg';
+  }
+
+  // Helper function to detect content type from file name
+  private getContentTypeFromFileName(fileName: string): string {
+    const ext = fileName.toLowerCase().split('.').pop() || '';
+    const extToMimeMap: { [key: string]: string } = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'tiff': 'image/tiff',
+      'tif': 'image/tiff',
+      'svg': 'image/svg+xml',
+      'avif': 'image/avif',
+      'heic': 'image/heic',
+      'heif': 'image/heif'
+    };
+
+    return extToMimeMap[ext] || 'image/jpeg';
   }
 }
 

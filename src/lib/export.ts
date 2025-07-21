@@ -108,9 +108,40 @@ const normalizeCityName = (cityString: string): string => {
 
 const getAbsoluteUrl = (url: string) => {
   if (!url) return '';
-  if (url.startsWith('http')) {
-    return url;
+  
+  // Handle Firebase Storage URLs with tokens
+  if (url.includes('firebasestorage.googleapis.com')) {
+    // Split on '?' to remove all query parameters (including token)
+    const cleanUrl = url.split('?')[0];
+    
+    // Extract the path from Firebase Storage URL
+    const match = cleanUrl.match(/\/o\/(.+)$/);
+    if (match) {
+      // Decode the URL-encoded path
+      const encodedPath = match[1];
+      const decodedPath = decodeURIComponent(encodedPath);
+      
+      // Return public storage URL without authentication
+      return `https://storage.googleapis.com/fr-toolv2.firebasestorage.app/${decodedPath}`;
+    }
   }
+  
+  // If it's already a public storage URL, clean any query parameters
+  if (url.includes('storage.googleapis.com/fr-toolv2.firebasestorage.app')) {
+    return url.split('?')[0];
+  }
+  
+  // If already a complete HTTP/HTTPS URL, clean query parameters
+  if (url.startsWith('http')) {
+    return url.split('?')[0];
+  }
+  
+  // For Firebase Storage paths, convert to public URLs (no tokens)
+  if (url.startsWith('properties/')) {
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'fr-toolv2.firebasestorage.app';
+    return `https://storage.googleapis.com/${bucketName}/${url}`;
+  }
+  
   // This function is client-side, so window should be available.
   if (typeof window !== 'undefined') {
     try {
@@ -119,6 +150,7 @@ const getAbsoluteUrl = (url: string) => {
         return url; // Return original if it's not a valid partial URL
     }
   }
+  
   // Fallback for any edge cases (e.g. server-side rendering context)
   return url; 
 };
