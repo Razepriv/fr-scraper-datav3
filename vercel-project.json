@@ -1,0 +1,27 @@
+{
+  "name": "FR Property Scraper",
+  "functions": {
+    "app/api/**": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_FIREBASE_API_KEY": "@firebase_api_key",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "@firebase_auth_domain", 
+    "NEXT_PUBLIC_FIREBASE_DATABASE_URL": "@firebase_database_url",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "@firebase_project_id",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "@firebase_storage_bucket",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "@firebase_messaging_sender_id",
+    "NEXT_PUBLIC_FIREBASE_APP_ID": "@firebase_app_id",
+    "GEMINI_API_KEY": "@gemini_api_key",
+    "NODE_ENV": "production",
+    "STORAGE_TYPE": "database",
+    "UPLOAD_PROVIDER": "firebase",
+    "ENABLE_BULK_DELETE": "true",
+    "ENABLE_EXPORT": "true", 
+    "ENABLE_AI_FEATURES": "true",
+    "MAX_PROPERTIES": "10000",
+    "MAX_UPLOAD_SIZE": "10485760"
+  }
+}
