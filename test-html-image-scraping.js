@@ -1,0 +1,69 @@
+// Test image scraping from raw HTML using the API endpoint
+const fetch = require('node-fetch');
+
+// Sample HTML content with Dubizzle-style image structure
+const sampleHtml = `
+<!DOCTYPE html>
+<html>
+<head><title>Property Listing</title></head>
+<body>
+<div class="property-details">
+  <h1>Luxury Apartment in Dubai Marina</h1>
+  <div class="image-gallery">
+    <img src="https://dbz-images.dubizzle.com/images/2025/07/21/6bd31c25-50cb-4a79-a9a5-7728d56c7353/309e09e62fb64629b75ad7de0c5c793a-.jpg?impolicy=dpv" alt="Living Room" />
+    <img src="https://dbz-images.dubizzle.com/images/2025/07/21/6bd31c25-50cb-4a79-a9a5-7728d56c7353/e9dfd3d51b0c487bb1cf4b662ccfbafd-.jpg?impolicy=dpv" alt="Bedroom" />
+    <img src="https://dbz-images.dubizzle.com/images/2025/07/21/6bd31c25-50cb-4a79-a9a5-7728d56c7353/f9c99a3e82054f2c9aab661a39833dff-.jpg?impolicy=dpv" alt="Kitchen" />
+    <img src="https://dbz-images.dubizzle.com/images/2025/07/21/6bd31c25-50cb-4a79-a9a5-7728d56c7353/72ca3086de1d4af0aeef0377739fa01f-.jpg?impolicy=dpv" alt="Bathroom" />
+    <img src="https://dbz-images.dubizzle.com/images/2025/07/21/6bd31c25-50cb-4a79-a9a5-7728d56c7353/f751d5ec8416435380aa45c8cc73a584-.jpg?impolicy=dpv" alt="Balcony" />
+  </div>
+  <div class="property-info">
+    <p>Price: AED 120,000/year</p>
+    <p>Bedrooms: 2</p>
+    <p>Bathrooms: 3</p>
+    <p>Area: 1200 sq ft</p>
+    <p>Location: Dubai Marina</p>
+    <p>Property Type: Apartment</p>
+    <p>Furnishing: Fully Furnished</p>
+    <p>Contact: +971501234567</p>
+  </div>
+</div>
+</body>
+</html>
+`;
+
+async function testImageScrapingViaAPI() {
+  console.log('🧪 Testing Image Scraping from Raw HTML via API...\n');
+  
+  try {
+    console.log('📄 HTML Length:', sampleHtml.length, 'characters');
+    console.log('🖼️ Expected Images: 5 Dubizzle property images');
+    console.log('🔧 Using ExternalImageStorage with compression fallback\n');
+    
+    const response = await fetch('http://localhost:9002/api/scrape/html', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        html: sampleHtml,
+        url: 'https://test-property-listing.com'
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Scraping completed successfully!');
+      console.log('📊 Results:', JSON.stringify(result, null, 2));
+    } else {
+      const errorText = await response.text();
+      console.error('❌ API Error:', response.status, response.statusText);
+      console.error('Error details:', errorText);
+    }
+    
+  } catch (error) {
+    console.error('❌ Network or parsing error:', error.message);
+  }
+}
+
+// Run the test
+testImageScrapingViaAPI();

@@ -68,9 +68,27 @@ const prompt = ai.definePrompt({
   name: 'extractPropertyInfoPrompt',
   input: {schema: ExtractPropertyInfoInputSchema},
   output: {schema: ExtractPropertyInfoOutputSchema},
-  prompt: `You are an expert at extracting structured data from web pages. Analyze the following HTML content from a real estate website and extract the details for all properties listed on the page.
+  prompt: `You are an expert at extracting structured data from web pages. Analyze the following HTML content from a real estate website and extract the details for ALL properties listed on the page.
 
-Your goal is to populate all fields in the provided JSON schema.
+**CRITICAL: BE AGGRESSIVE IN FINDING PROPERTIES**
+- Look for ANY content that could be a property listing, even if the structure is unusual
+- Property information might be in: articles, divs, sections, cards, listings, rows, or any container
+- Price information might be in various formats: "$1,500", "AED 120,000", "€2,000/month", "Price: $500K"
+- Titles might be in: h1, h2, h3, h4, span, div, a tags, or data attributes
+- Locations might be labeled as: address, location, area, city, neighborhood, region
+- If you find ANY property-related content (title, price, location), create a property entry even if other fields are missing
+
+**PROPERTY DETECTION PATTERNS:**
+- Look for keywords: "apartment", "villa", "house", "property", "room", "studio", "bedroom", "bathroom"
+- Look for price indicators: currency symbols ($, €, £, AED, etc.), "rent", "sale", "price", "/month", "/year"
+- Look for location indicators: city names, street addresses, postal codes, area names
+
+**FLEXIBLE FIELD EXTRACTION:**
+- Title: ANY text that looks like a property name, address, or description
+- Price: ANY text containing numbers with currency or price-related words
+- Location: ANY text that looks like an address, city, or area name
+- Description: Property details, features, or any descriptive text
+- Bedrooms/Bathrooms: Look for "BR", "bed", "bath", "bedroom", "bathroom" + numbers
 
 **CRITICAL INSTRUCTIONS FOR IMAGE EXTRACTION:**
 - Find all relevant, high-quality image URLs for the property. Be thorough.
@@ -83,10 +101,13 @@ Your goal is to populate all fields in the provided JSON schema.
 - Exclude any placeholder images. These often contain words like 'placeholder', 'default', or dimensions like '600x400' in the URL itself.
 - For 'image_urls', if you cannot find ANY images after trying all the methods above, return an empty array [].
 
+**FALLBACK RULES:**
 - For all string fields, if you cannot find the information, return an empty string "".
 - For all number fields, if you cannot find the information, return 0.
 - For all array fields (like 'features'), if no information is found, return an empty array [].
 - Extract contact details like phone numbers and emails for the listed person or agency.
+
+**IMPORTANT: If you find ANY property-related content, create at least one property entry. Do not return an empty array unless the HTML truly contains no property information whatsoever.**
 
 HTML Content:
 \`\`\`html
@@ -103,11 +124,30 @@ const extractPropertyInfoFlow = ai.defineFlow(
     outputSchema: ExtractPropertyInfoOutputSchema,
   },
   async input => {
+    console.log(`🤖 Starting AI property extraction flow...`);
+    console.log(`📄 HTML content length: ${input.htmlContent.length}`);
+    
     try {
+      console.log(`🔧 Calling AI prompt with model...`);
       const {output} = await prompt(input);
-      return output ?? { properties: [] };
+      console.log(`📊 AI prompt response:`, {
+        hasOutput: !!output,
+        outputType: typeof output,
+        propertiesCount: output?.properties?.length || 0
+      });
+      
+      const result = output ?? { properties: [] };
+      console.log(`✅ AI extraction flow completed with ${result.properties.length} properties`);
+      return result;
     } catch (error) {
-      console.error("Error during AI-powered property extraction:", error);
+      console.error("❌ Error during AI-powered property extraction:", error);
+      if (error instanceof Error) {
+        console.error("🔍 Error details:", {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
       // Return an empty object to prevent the entire scraping process from failing
       // if the AI model returns malformed data.
       return { properties: [] };

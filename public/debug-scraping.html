@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scraping Debugger</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; }
+        input, textarea, button { margin: 10px 0; padding: 10px; width: 100%; }
+        .result { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .logs { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 10px 0; border-radius: 5px; font-family: monospace; height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Scraping Debugger</h1>
+        
+        <h3>Test URL Scraping</h3>
+        <input type="url" id="urlInput" placeholder="Enter property website URL (e.g., https://example-property-site.com/listing)">
+        <button onclick="testUrlScraping()">Test URL Scraping</button>
+        
+        <h3>Test HTML Scraping</h3>
+        <textarea id="htmlInput" rows="10" placeholder="Paste property HTML content here..."></textarea>
+        <button onclick="testHtmlScraping()">Test HTML Scraping</button>
+        
+        <div id="result" class="result" style="display:none;"></div>
+        <div id="logs" class="logs" style="display:none;"></div>
+    </div>
+
+    <script>
+        let logDiv = document.getElementById('logs');
+        let resultDiv = document.getElementById('result');
+        
+        function log(message) {
+            console.log(message);
+            logDiv.style.display = 'block';
+            logDiv.innerHTML += message + '\\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        async function testUrlScraping() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            resultDiv.style.display = 'none';
+            logDiv.innerHTML = '';
+            logDiv.style.display = 'block';
+            
+            log('🔍 Testing URL scraping...');
+            log('📄 URL: ' + url);
+            
+            try {
+                const response = await fetch('/api/scrape/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                
+                const result = await response.json();
+                showResult(result, 'URL');
+            } catch (error) {
+                log('❌ Network error: ' + error.message);
+            }
+        }
+        
+        async function testHtmlScraping() {
+            const html = document.getElementById('htmlInput').value;
+            if (!html) {
+                alert('Please enter HTML content');
+                return;
+            }
+            
+            resultDiv.style.display = 'none';
+            logDiv.innerHTML = '';
+            logDiv.style.display = 'block';
+            
+            log('🔍 Testing HTML scraping...');
+            log('📄 HTML length: ' + html.length + ' characters');
+            
+            try {
+                const response = await fetch('/api/scrape/html', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html })
+                });
+                
+                const result = await response.json();
+                showResult(result, 'HTML');
+            } catch (error) {
+                log('❌ Network error: ' + error.message);
+            }
+        }
+        
+        function showResult(result, type) {
+            log('📊 API Response received');
+            log('✅ Success: ' + result.success);
+            
+            if (result.success && result.data) {
+                log('🎉 Properties found: ' + result.data.length);
+                
+                resultDiv.style.display = 'block';
+                if (result.data.length > 0) {
+                    const prop = result.data[0];
+                    resultDiv.innerHTML = `
+                        <h3>✅ Success! Found ${result.data.length} properties</h3>
+                        <p><strong>Title:</strong> ${prop.title || 'N/A'}</p>
+                        <p><strong>Price:</strong> ${prop.price || 'N/A'}</p>
+                        <p><strong>Location:</strong> ${prop.location || 'N/A'}</p>
+                        <p><strong>Description:</strong> ${(prop.description || '').substring(0, 200)}...</p>
+                        <p><strong>Bedrooms:</strong> ${prop.bedrooms || 0}</p>
+                        <p><strong>Bathrooms:</strong> ${prop.bathrooms || 0}</p>
+                        <p><strong>Images:</strong> ${prop.image_urls ? prop.image_urls.length : 0}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<h3>❌ No properties found</h3>';
+                }
+            } else {
+                log('❌ Error: ' + (result.error || 'Unknown error'));
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<h3>❌ Error: ${result.error || 'Unknown error'}</h3>`;
+            }
+        }
+    </script>
+</body>
+</html>

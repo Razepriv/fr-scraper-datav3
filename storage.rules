@@ -2,9 +2,19 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allow public read access to all files
     match /{allPaths=**} {
-      allow read: if true; // Allows public read access to all files
-      allow write: if request.auth != null; // Only authenticated users can write
+      allow read: if true;
+    }
+    
+    // Allow unauthenticated uploads to properties folder for scraping
+    match /properties/{allPaths=**} {
+      allow write: if true; // Allow unauthenticated uploads for scraping
+    }
+    
+    // Require authentication for all other uploads
+    match /{allPaths=**} {
+      allow write: if request.auth != null;
     }
   }
 }

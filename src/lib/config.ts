@@ -30,6 +30,12 @@ export const ENV_CONFIG = {
   MAX_PROPERTIES: parseInt(process.env.MAX_PROPERTIES || '10000'),
   MAX_UPLOAD_SIZE: parseInt(process.env.MAX_UPLOAD_SIZE || '10485760'), // 10MB
   
+  // Image processing limits
+  MAX_IMAGES_PER_PROPERTY: parseInt(process.env.MAX_IMAGES_PER_PROPERTY || '15'),
+  MAX_DATA_URL_IMAGES: parseInt(process.env.MAX_DATA_URL_IMAGES || '8'),
+  MAX_COMPRESSED_IMAGE_SIZE: parseInt(process.env.MAX_COMPRESSED_IMAGE_SIZE || '30000'), // 30KB
+  MAX_DOCUMENT_SIZE: parseInt(process.env.MAX_DOCUMENT_SIZE || '900000'), // 900KB (safe margin under 1MB)
+  
   // Firebase configuration
   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,

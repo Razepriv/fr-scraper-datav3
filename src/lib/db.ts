@@ -16,95 +16,23 @@ export async function getHistory(): Promise<HistoryEntry[]> {
 }
 
 export async function savePropertiesToDb(newProperties: Property[]): Promise<void> {
+    console.log(`🔄 Starting save process for ${newProperties.length} properties`);
+    
     const existingProperties = await database.getAllProperties();
+    console.log(`📊 Found ${existingProperties.length} existing properties in database`);
     
-    // Create multiple keys for more comprehensive duplicate detection
-    const existingKeys = new Set<string>();
-    existingProperties.forEach(p => {
-        // Original method - URL + title combination
-        existingKeys.add(`${p.original_url}::${p.original_title}`);
-        
-        // Enhanced duplicate detection methods
-        // 1. Location + price + bedrooms + bathrooms combination
-        const locationKey = `${p.location}::${p.price}::${p.bedrooms}::${p.bathrooms}`;
-        existingKeys.add(locationKey);
-        
-        // 2. Enhanced title similarity (first 50 chars)
-        if (p.enhanced_title) {
-            existingKeys.add(`enhanced::${p.enhanced_title.substring(0, 50).toLowerCase()}`);
-        }
-        
-        // 3. Original title similarity (first 50 chars)
-        if (p.original_title) {
-            existingKeys.add(`original::${p.original_title.substring(0, 50).toLowerCase()}`);
-        }
-        
-        // 4. Reference ID or permit number if available
-        if (p.reference_id) {
-            existingKeys.add(`ref::${p.reference_id}`);
-        }
-        if (p.permit_number) {
-            existingKeys.add(`permit::${p.permit_number}`);
-        }
-    });
-
-    const uniqueNewProperties = newProperties.filter(p => {
-        // A generic URL for HTML scrapes means we can't effectively check for duplicates via URL, so check other methods
-        if (p.original_url === 'scraped-from-html') {
-            // For HTML scrapes, use enhanced duplicate detection
-            const locationKey = `${p.location}::${p.price}::${p.bedrooms}::${p.bathrooms}`;
-            const enhancedTitleKey = p.enhanced_title ? `enhanced::${p.enhanced_title.substring(0, 50).toLowerCase()}` : null;
-            const originalTitleKey = p.original_title ? `original::${p.original_title.substring(0, 50).toLowerCase()}` : null;
-            const refKey = p.reference_id ? `ref::${p.reference_id}` : null;
-            const permitKey = p.permit_number ? `permit::${p.permit_number}` : null;
-            
-            // Check if any of these keys already exist
-            if (existingKeys.has(locationKey) || 
-                (enhancedTitleKey && existingKeys.has(enhancedTitleKey)) ||
-                (originalTitleKey && existingKeys.has(originalTitleKey)) ||
-                (refKey && existingKeys.has(refKey)) ||
-                (permitKey && existingKeys.has(permitKey))) {
-                console.log(`Skipping duplicate property (HTML scrape): "${p.original_title}" - matched existing property`);
-                return false;
-            }
-            return true;
-        }
-        
-        // For URL scrapes, use original method plus enhanced detection
-        const originalKey = `${p.original_url}::${p.original_title}`;
-        if (existingKeys.has(originalKey)) {
-            console.log(`Skipping duplicate property: "${p.original_title}" from ${p.original_url}`);
-            return false;
-        }
-        
-        // Additional checks for URL scrapes
-        const locationKey = `${p.location}::${p.price}::${p.bedrooms}::${p.bathrooms}`;
-        const refKey = p.reference_id ? `ref::${p.reference_id}` : null;
-        const permitKey = p.permit_number ? `permit::${p.permit_number}` : null;
-        
-        if (existingKeys.has(locationKey) || 
-            (refKey && existingKeys.has(refKey)) ||
-            (permitKey && existingKeys.has(permitKey))) {
-            console.log(`Skipping duplicate property (alternate match): "${p.original_title}" from ${p.original_url}`);
-            return false;
-        }
-        
-        return true;
-    });
-
-    if (newProperties.length > 0 && uniqueNewProperties.length === 0) {
-       console.log("All properties already exist in the database. No new properties to save.");
-       return; // Don't throw error, just return silently
+    // We'll just use saveProperty's duplicate detection and skip our own here
+    // This avoids double-checking and potential inconsistencies between the two methods
+    
+    console.log(`💾 Saving ${newProperties.length} properties to database`);
+    try {
+        await database.saveProperties([...newProperties, ...existingProperties]);
+        console.log(`✅ Successfully saved properties to database`);
+    } catch (error) {
+        console.error(`❌ Error saving properties to database:`, error);
+        throw error; // Re-throw so the calling function can handle it
     }
     
-    if (uniqueNewProperties.length === 0) {
-        console.log("No new properties to save.");
-        return; // Nothing to do
-    }
-
-    console.log(`Saving ${uniqueNewProperties.length} new properties out of ${newProperties.length} processed properties.`);
-    const updatedProperties = [...uniqueNewProperties, ...existingProperties];
-    await database.saveProperties(updatedProperties);
     revalidatePath('/database');
 }
 

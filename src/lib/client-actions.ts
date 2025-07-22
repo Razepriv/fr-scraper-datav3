@@ -73,6 +73,15 @@ export async function scrapeBulk(urls: string): Promise<Property[] | null> {
 
 export async function saveProperty(property: Property): Promise<{ success: boolean; message?: string }> {
   try {
+    console.log('🚀 Client: Starting save property request');
+    console.log('📄 Property data:', {
+      id: property.id,
+      title: property.original_title,
+      url: property.original_url,
+      hasDescription: !!property.description,
+      hasImages: !!property.image_urls && property.image_urls.length > 0
+    });
+
     const response = await fetch('/api/property/save', {
       method: 'POST',
       headers: {
@@ -81,10 +90,22 @@ export async function saveProperty(property: Property): Promise<{ success: boole
       body: JSON.stringify(property),
     });
 
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response ok:', response.ok);
+
+    if (!response.ok) {
+      console.error('❌ Response not ok:', response.status, response.statusText);
+      return {
+        success: false,
+        message: `Server error: ${response.status} ${response.statusText}`
+      };
+    }
+
     const result = await response.json();
+    console.log('📋 Response data:', result);
     return result;
   } catch (error) {
-    console.error('Error saving property:', error);
+    console.error('❌ Client error saving property:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error'

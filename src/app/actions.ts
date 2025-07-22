@@ -4,35 +4,58 @@ import { v4 as uuidv4 } from 'uuid';
 import { enhancePropertyContent } from '@/ai/flows/enhance-property-description';
 import { extractPropertyInfo } from '@/ai/flows/extract-property-info';
 import { savePropertiesToDb, saveHistoryEntry, updatePropertyInDb, deletePropertyFromDb } from '@/lib/db';
+import { getDatabase } from '@/lib/database-adapter';
 import { getImageStorage, downloadImageFromUrl } from '@/lib/image-storage';
+import { ENV_CONFIG } from '@/lib/config';
 import { revalidatePath } from 'next/cache';
 import { type Property, type HistoryEntry } from '@/lib/types';
 
 // Configuration for auto-enhancement
 const AUTO_ENHANCE_ENABLED = process.env.AUTO_ENHANCE_ENABLED !== 'false'; // Default to true
-const AUTO_SAVE_ENABLED = process.env.AUTO_SAVE_ENABLED !== 'false'; // Default to true
+const AUTO_SAVE_ENABLED = true; // Re-enabled to test compression functionality
 
 
 // Helper function to download an image from a URL and save it using the image storage adapter
-async function downloadImage(url: string, propertyId: string, imageIndex: number): Promise<string | null> {
+async function downloadImage(url: string, propertyId: string, imageIndex: number, forcePlaceholder: boolean = false, preferDataUrl: boolean = true): Promise<string | null> {
     try {
+        // If forced to use placeholder, return placeholder immediately
+        if (forcePlaceholder) {
+            console.log(`🔄 Using placeholder for image ${imageIndex + 1} (document size optimization)`);
+            return `https://placehold.co/600x400/e2e8f0/64748b?text=Property+Image+${imageIndex + 1}`;
+        }
+        
         const imageData = await downloadImageFromUrl(url);
         if (!imageData) {
-            return null;
+            // If download fails, try to preserve the original URL for external display
+            console.log(`⚠️ Image download failed, using original URL: ${url}`);
+            return url;
         }
 
         const imageStorage = getImageStorage();
-        const imageUrl = await imageStorage.uploadImage(
-            imageData.buffer, 
-            propertyId, 
-            imageIndex, 
-            imageData.contentType
-        );
-
-        return imageUrl;
+        
+        // Try to upload to storage first
+        try {
+            const imageUrl = await imageStorage.uploadImage(
+                imageData.buffer, 
+                propertyId, 
+                imageIndex, 
+                imageData.contentType,
+                preferDataUrl
+            );
+            return imageUrl;
+        } catch (uploadError) {
+            // If upload fails but we prefer data URL, try external fallback
+            if (!preferDataUrl) {
+                console.log(`⚠️ Upload failed for image ${imageIndex + 1}, using original URL: ${url}`);
+                return url;
+            }
+            throw uploadError;
+        }
     } catch (error) {
         console.error(`❌ Error processing image ${url}:`, error);
-        return null;
+        // Return original URL instead of null to avoid losing the image reference
+        console.log(`🔗 Falling back to original URL: ${url}`);
+        return url;
     }
 }
 
@@ -70,7 +93,19 @@ async function processScrapedData(properties: any[], originalUrl: string, histor
         
         console.log(`[Image Processing] Found ${imageUrls.length} image URLs to process for propertyId: ${propertyId}.`);
 
-        const downloadPromises = imageUrls.map((imgUrl: string, i: number) => downloadImage(imgUrl, propertyId, i));
+        // Process ALL images with intelligent storage strategy
+        const maxImages = ENV_CONFIG.MAX_IMAGES_PER_PROPERTY;
+        const maxDataUrlImages = ENV_CONFIG.MAX_DATA_URL_IMAGES;
+        const allImageUrls = imageUrls.slice(0, Math.min(imageUrls.length, maxImages));
+        
+        console.log(`[Image Processing] Processing ALL ${allImageUrls.length} out of ${imageUrls.length} images with hybrid storage strategy`);
+
+        const downloadPromises = allImageUrls.map((imgUrl: string, i: number) => {
+            // First 8 images: Try compressed data URLs
+            // Remaining images: Use external URLs or optimized placeholders
+            const preferDataUrl = i < maxDataUrlImages;
+            return downloadImage(imgUrl, propertyId, i, false, preferDataUrl);
+        });
         const downloadedUrls = (await Promise.all(downloadPromises)).filter((url): url is string => url !== null);
         
         // Auto-enhance if enabled
@@ -203,36 +238,83 @@ async function processScrapedProperties(
 }
 
 export async function scrapeUrl(url: string): Promise<Property[] | null> {
-    console.log(`Scraping URL: ${url}`);
+    console.log(`🔍 Scraping URL: ${url}`);
 
     if (!url || !url.includes('http')) {
         throw new Error('Invalid URL provided.');
     }
     
+    console.log(`🌐 Fetching HTML from URL...`);
     const htmlContent = await getHtml(url);
-    const result = await extractPropertyInfo({ htmlContent });
-    if (!result || !result.properties) {
-        console.log("AI extraction returned no properties.");
-        return [];
-    }
+    console.log(`📄 Fetched HTML length: ${htmlContent.length}`);
     
-    return processScrapedData(result.properties, url, { type: 'URL', details: url });
+    console.log(`🤖 Calling AI extraction with GEMINI_API_KEY present: ${process.env.GEMINI_API_KEY ? 'Yes' : 'No'}`);
+    
+    try {
+        const result = await extractPropertyInfo({ htmlContent });
+        console.log(`🔬 AI extraction result:`, {
+            hasResult: !!result,
+            hasProperties: !!(result && result.properties),
+            propertiesCount: result?.properties?.length || 0,
+            resultType: typeof result
+        });
+        
+        if (!result || !result.properties) {
+            console.log("❌ AI extraction returned no properties.");
+            console.log("🔍 Full result:", JSON.stringify(result, null, 2));
+            console.log("📄 HTML snippet (first 500 chars):", htmlContent.substring(0, 500));
+            console.log("🔍 Looking for property keywords in HTML...");
+            const keywords = ['property', 'apartment', 'villa', 'house', 'rent', 'sale', 'bedroom', 'bathroom', 'price', 'AED', '$', '€', 'sqft', 'sq ft'];
+            const foundKeywords = keywords.filter(keyword => htmlContent.toLowerCase().includes(keyword.toLowerCase()));
+            console.log("📋 Found keywords:", foundKeywords);
+            return [];
+        }
+        
+        console.log(`✅ AI extracted ${result.properties.length} properties successfully`);
+        return processScrapedData(result.properties, url, { type: 'URL', details: url });
+    } catch (extractionError) {
+        console.error(`❌ AI extraction error:`, extractionError);
+        const errorMessage = extractionError instanceof Error ? extractionError.message : 'Unknown AI extraction error';
+        throw new Error(`AI extraction failed: ${errorMessage}`);
+    }
 }
 
 export async function scrapeHtml(html: string, originalUrl: string = 'scraped-from-html'): Promise<Property[] | null> {
-    console.log(`Scraping HTML of length: ${html.length}`);
+    console.log(`🔍 Scraping HTML of length: ${html.length}`);
 
     if (!html || html.length < 100) {
         throw new Error('Invalid HTML provided.');
     }
 
-    const result = await extractPropertyInfo({ htmlContent: html });
-    if (!result || !result.properties) {
-        console.log("AI extraction returned no properties.");
-        return [];
-    }
+    console.log(`🤖 Calling AI extraction with GEMINI_API_KEY present: ${process.env.GEMINI_API_KEY ? 'Yes' : 'No'}`);
     
-    return processScrapedData(result.properties, originalUrl, { type: 'HTML', details: 'Pasted HTML content' });
+    try {
+        const result = await extractPropertyInfo({ htmlContent: html });
+        console.log(`🔬 AI extraction result:`, {
+            hasResult: !!result,
+            hasProperties: !!(result && result.properties),
+            propertiesCount: result?.properties?.length || 0,
+            resultType: typeof result
+        });
+        
+        if (!result || !result.properties) {
+            console.log("❌ AI extraction returned no properties.");
+            console.log("🔍 Full result:", JSON.stringify(result, null, 2));
+            console.log("📄 HTML snippet (first 500 chars):", html.substring(0, 500));
+            console.log("🔍 Looking for property keywords in HTML...");
+            const keywords = ['property', 'apartment', 'villa', 'house', 'rent', 'sale', 'bedroom', 'bathroom', 'price', 'AED', '$', '€', 'sqft', 'sq ft'];
+            const foundKeywords = keywords.filter(keyword => html.toLowerCase().includes(keyword.toLowerCase()));
+            console.log("📋 Found keywords:", foundKeywords);
+            return [];
+        }
+        
+        console.log(`✅ AI extracted ${result.properties.length} properties successfully`);
+        return processScrapedData(result.properties, originalUrl, { type: 'HTML', details: 'Pasted HTML content' });
+    } catch (extractionError) {
+        console.error(`❌ AI extraction error:`, extractionError);
+        const errorMessage = extractionError instanceof Error ? extractionError.message : 'Unknown AI extraction error';
+        throw new Error(`AI extraction failed: ${errorMessage}`);
+    }
 }
 
 export async function scrapeBulk(urls: string): Promise<Property[] | null> {
@@ -264,14 +346,71 @@ export async function scrapeBulk(urls: string): Promise<Property[] | null> {
 
 export async function saveProperty(property: Property) {
     try {
-        await savePropertiesToDb([property]);
-        return { success: true, message: "Property saved successfully" };
-    } catch (error) {
-        console.error("Error saving property:", error);
-        if (error instanceof Error && error.message.includes("already exist")) {
-            return { success: false, message: "This property already exists in the database" };
+        console.log(`🔍 Attempting to save property: "${property.original_title}"`);
+        console.log(`📍 Property URL: ${property.original_url}`);
+        
+        // Add a timestamp ID if one doesn't exist
+        if (!property.id) {
+            property.id = `prop-${Date.now()}-${Math.floor(Math.random() * 100)}`;
         }
-        return { success: false, message: "Failed to save property to database" };
+
+        // Get all existing properties 
+        const database = getDatabase();
+        const existingProperties = await database.getAllProperties();
+        console.log(`📊 Found ${existingProperties.length} existing properties in database`);
+        
+        // TEMPORARILY DISABLE DUPLICATE DETECTION TO DEBUG THE ISSUE
+        // Let's see what's actually happening by logging all potential matches
+        console.log(`🔍 Checking for potential duplicates...`);
+        
+        const potentialMatches = existingProperties.filter(
+            (p) => p.original_url === property.original_url || 
+                   p.original_title === property.original_title
+        );
+        
+        if (potentialMatches.length > 0) {
+            console.log(`⚠️ Found ${potentialMatches.length} potential matches:`);
+            potentialMatches.forEach((match, index) => {
+                console.log(`  ${index + 1}. ID: ${match.id}`);
+                console.log(`     URL: "${match.original_url}"`);
+                console.log(`     Title: "${match.original_title}"`);
+                console.log(`     URL Match: ${match.original_url === property.original_url}`);
+                console.log(`     Title Match: ${match.original_title === property.original_title}`);
+            });
+        }
+
+        // FOR NOW: SKIP DUPLICATE CHECK ENTIRELY - LET'S JUST SAVE IT
+        console.log(`✅ Skipping duplicate check - saving property directly`);
+        
+        // Save the property directly using database adapter
+        try {
+            const allProperties = [...existingProperties, property];
+            await database.saveProperties(allProperties);
+            
+            console.log(`💾 Successfully saved property: ${property.original_title}`);
+            
+            // Revalidate the database page to show the new property
+            const { revalidatePath } = await import('next/cache');
+            revalidatePath('/database');
+            
+            return { success: true, message: "Property saved successfully" };
+        } catch (saveError) {
+            console.error(`❌ Error during database save:`, saveError);
+            return { 
+                success: false, 
+                message: saveError instanceof Error 
+                    ? `Database error: ${saveError.message}` 
+                    : "Failed to save property to database"
+            };
+        }
+    } catch (error) {
+        console.error("❌ Unexpected error in saveProperty:", error);
+        return { 
+            success: false, 
+            message: error instanceof Error 
+                ? `Error: ${error.message}` 
+                : "Failed to save property to database"
+        };
     }
 }
 

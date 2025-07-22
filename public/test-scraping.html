@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Property Scraping</title>
+</head>
+<body>
+    <h1>Test Property Scraping</h1>
+    
+    <button onclick="testScraping()">Test Scraping</button>
+    <div id="result"></div>
+    
+    <script>
+        async function testScraping() {
+            console.log('🧪 Testing scraping...');
+            document.getElementById('result').innerHTML = 'Testing...';
+            
+            const testHTML = `
+            <html>
+            <body>
+                <div class="property">
+                    <h1>Beautiful 2BR Apartment in Dubai Marina</h1>
+                    <div class="price">AED 120,000 per year</div>
+                    <div class="location">Dubai Marina, Dubai</div>
+                    <div class="details">2 bedrooms, 2 bathrooms, 1100 sq ft</div>
+                    <div class="description">Stunning waterfront apartment with marina views</div>
+                    <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&h=400" alt="Property" />
+                </div>
+            </body>
+            </html>
+            `;
+            
+            try {
+                const response = await fetch('/api/scrape/html', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ html: testHTML })
+                });
+                
+                const result = await response.json();
+                console.log('📊 Scraping result:', result);
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    document.getElementById('result').innerHTML = `
+                        <h3>✅ Success! Found ${result.data.length} properties</h3>
+                        <p><strong>Title:</strong> ${result.data[0].title}</p>
+                        <p><strong>Price:</strong> ${result.data[0].price}</p>
+                        <p><strong>Location:</strong> ${result.data[0].location}</p>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <h3>❌ No properties found</h3>
+                        <p>Error: ${result.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                document.getElementById('result').innerHTML = `<h3>❌ Network Error: ${error.message}</h3>`;
+            }
+        }
+    </script>
+</body>
+</html>
