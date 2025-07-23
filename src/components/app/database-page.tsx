@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { type Property } from '@/lib/types';
-import { deleteProperty, updateProperty } from '@/lib/client-actions';
+import { deleteProperty, updateProperty, refreshDatabase } from '@/lib/client-actions';
 import { DatabaseTable } from '@/components/app/database-table';
 import { EditDialog } from '@/components/app/edit-dialog';
 import { ExportDialog } from '@/components/app/export-dialog';
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { downloadCsv, downloadJson, downloadExcel } from '@/lib/export';
-import { Loader2, Search, Filter } from 'lucide-react';
+import { Loader2, Search, Filter, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DatabasePageProps {
@@ -25,6 +25,7 @@ export function DatabasePage({ initialProperties }: DatabasePageProps) {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProperties, setSelectedProperties] = useState<Property[]>([]);
   
   // Add filter states
@@ -116,6 +117,35 @@ export function DatabasePage({ initialProperties }: DatabasePageProps) {
     window.location.reload();
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const result = await refreshDatabase();
+      if (result.success) {
+        // Reload the page to get fresh data from the server
+        window.location.reload();
+        toast({ 
+          title: "Database Refreshed", 
+          description: result.message 
+        });
+      } else {
+        toast({ 
+          variant: "destructive", 
+          title: "Refresh Failed", 
+          description: result.message 
+        });
+      }
+    } catch (error) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: "Failed to refresh database" 
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleSelectProperty = (property: Property, selected: boolean) => {
     if (selected) {
       setSelectedProperties(prev => [...prev, property]);
@@ -143,6 +173,15 @@ export function DatabasePage({ initialProperties }: DatabasePageProps) {
           )}
         </div>
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <ContactExtractionDialog allProperties={properties} onPropertyUpdate={handlePropertyUpdate} />
           <Button variant="outline" onClick={() => downloadJson(filteredProperties, 'database_export')}>Quick JSON</Button>
           <Button variant="outline" onClick={() => downloadCsv(filteredProperties, 'database_export')}>Quick CSV</Button>

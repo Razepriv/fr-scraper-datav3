@@ -209,3 +209,24 @@ export async function deleteFilteredProperties(filter: any): Promise<{ success: 
     };
   }
 }
+
+export async function refreshDatabase(): Promise<{ success: boolean; message: string; count: number }> {
+  try {
+    const response = await fetch('/api/database/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error refreshing database:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to refresh database',
+      count: 0
+    };
+  }
+}

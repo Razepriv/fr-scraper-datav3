@@ -3,6 +3,40 @@
 import { saveAs } from 'file-saver';
 import { utils, write } from 'xlsx';
 import type { Property } from '@/lib/types';
+import { getFirebaseStorageUrl, getFirebaseImageUrls } from '@/lib/image-sync';
+
+// Helper function to get Firebase Storage URLs for images
+const getFirebaseImageUrlsForExport = (imageUrls: string[]): string => {
+  if (!imageUrls || imageUrls.length === 0) return '';
+  
+  // Filter and get only Firebase Storage URLs
+  const firebaseUrls = imageUrls
+    .filter(url => url && typeof url === 'string')
+    .map(url => url.trim())
+    .filter(url => {
+      // Only include Firebase Storage URLs
+      return url.includes('firebasestorage.googleapis.com') || 
+             url.includes('storage.googleapis.com') ||
+             url.includes('fr-toolv2.firebasestorage.app');
+    })
+    .map(url => {
+      // Convert to clean public URLs
+      if (url.includes('firebasestorage.googleapis.com')) {
+        // Remove authentication tokens
+        const cleanUrl = url.split('?')[0];
+        const match = cleanUrl.match(/\/o\/(.+)$/);
+        if (match) {
+          const decodedPath = decodeURIComponent(match[1]);
+          return `https://storage.googleapis.com/fr-toolv2.firebasestorage.app/${decodedPath}`;
+        }
+      }
+      return url.split('?')[0]; // Remove any query parameters
+    })
+    .filter(url => url && url.length > 0)
+    .slice(0, 5); // Limit to 5 images for cleaner export
+  
+  return firebaseUrls.join(' | ');
+};
 
 // Helper function to extract numeric value from price (remove AED, commas, etc.)
 const extractPriceNumber = (priceString: string): string => {
@@ -243,14 +277,85 @@ export const downloadJson = (data: Property[], filename: string) => {
   saveAs(blob, `${filename}.json`);
 };
 
-// Function to download data as a CSV file with all required headers
+// Helper function to clean text data - removes HTML tags, extra whitespace, and special characters
+const cleanTextData = (text: string): string => {
+  if (!text) return '';
+  
+  return text
+    // Remove HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Remove multiple whitespaces and replace with single space
+    .replace(/\s+/g, ' ')
+    // Remove special characters that might break CSV
+    .replace(/[^\w\s\-.,!?()]/g, '')
+    // Trim whitespace
+    .trim();
+};
+
+// Function to download data as a CLEAN CSV file
 export const downloadCsv = (data: Property[], filename: string) => {
     if (data.length === 0) {
         alert("No data to export.");
         return;
     }
     
-    // All required headers as specified
+    // CLEAN headers - only essential fields to avoid junk
+    const csvHeaders = [
+        'ID', 'Title', 'Price (AED)', 'City', 'Location', 'Property Type', 
+        'Bedrooms', 'Bathrooms', 'Area (sq ft)', 'Description', 
+        'Features', 'Contact Name', 'Contact Phone', 'Contact Email',
+        'Firebase Images', 'Scraped Date'
+    ];
+
+    const csvData = data.map(prop => {
+        // Prioritize enhanced title, fallback to original title
+        const propertyTitle = prop.enhanced_title && prop.enhanced_title.trim() 
+            ? cleanTextData(prop.enhanced_title) 
+            : cleanTextData(prop.title || prop.original_title || 'No Title');
+            
+        // Get Firebase Storage URLs only
+        const firebaseImages = getFirebaseImageUrlsForExport(prop.image_urls || []);
+        
+        return {
+            'ID': prop.id || '',
+            'Title': propertyTitle,
+            'Price (AED)': extractPriceNumber(prop.price || ''),
+            'City': normalizeCityName(prop.city || ''),
+            'Location': cleanTextData(prop.location || ''),
+            'Property Type': cleanTextData(prop.property_type || ''),
+            'Bedrooms': prop.bedrooms || 0,
+            'Bathrooms': prop.bathrooms || 0,
+            'Area (sq ft)': extractAreaNumber(prop.area || ''),
+            'Description': cleanTextData(prop.enhanced_description || prop.description || '').substring(0, 500), // Limit description length
+            'Features': (prop.features || []).filter(f => f && f.trim()).map(f => cleanTextData(f)).join(' | '),
+            'Contact Name': cleanTextData(prop.listed_by_name || ''),
+            'Contact Phone': cleanTextData(prop.listed_by_phone || ''),
+            'Contact Email': cleanTextData(prop.listed_by_email || ''),
+            'Firebase Images': firebaseImages, // Only Firebase Storage URLs
+            'Scraped Date': new Date(prop.scraped_at || new Date()).toLocaleDateString(),
+        };
+    });
+
+    // Create clean worksheet - NO EXTRA ROWS, NO DESCRIPTIONS
+    const worksheet = utils.json_to_sheet(csvData, { header: csvHeaders, skipHeader: false });
+    
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, 'Properties');
+
+    // Generate clean CSV output
+    const csvOutput = write(workbook, { bookType: 'csv', type: 'string' });
+    const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `${filename}.csv`);
+};
+
+// Legacy CSV export with all original fields (for users who need comprehensive data)
+export const downloadCsvLegacy = (data: Property[], filename: string) => {
+    if (data.length === 0) {
+        alert("No data to export.");
+        return;
+    }
+    
+    // All required headers as specified (original format)
     const csvHeaders = [
         'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
         'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
@@ -264,108 +369,70 @@ export const downloadCsv = (data: Property[], filename: string) => {
         'Premium Property', 'Feature and Ammenties', 'Term and Condition'
     ];
 
-    const csvData = data.map(prop => ({
-        'Title': prop.enhanced_title || prop.title || '',
-        'City': normalizeCityName(prop.city || ''),
-        'Property Price': extractPriceNumber(prop.price || ''),
-        'Property Size': extractAreaNumber(prop.area || ''),
-        'Property Address': prop.location || '',
-        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
-        'Landlord Name': prop.listed_by_name || '',
-        'Landlord Email': prop.listed_by_email || '',
-        'Landlord Phone': prop.listed_by_phone || '',
-        'Property Country': 'UAE', // Default for UAE properties
-        'Neighborhood / Area': prop.neighborhood || prop.county || '',
-        'property_agent': prop.listed_by_name || '',
-        'Nationality': '', // Not available in current data
-        'Religion': '', // Not available in current data
-        'Tenant Type': prop.tenant_type || '',
-        'Property Display Status': 'Active', // Default status
-        'Property Gender Preference': '', // Not available in current data
-        'Property Living Room': '', // Not available in current data
-        'Property Approval Status': 'Approved', // Default status
-        'Property Furnishing Status': prop.furnish_type || '',
-        'Property Minimum Stay': '', // Not available in current data
-        'Property Maximum Stay': '', // Not available in current data
-        'Property Minimum Notice': '', // Not available in current data
-        'Property Bathroom': prop.bathrooms || 0,
-        'Property Bed': prop.bedrooms || 0,
-        'Property Room': prop.bedrooms || 0, // Using bedrooms as room count
-        'Property Latitude': '', // Not available in current data
-        'Property Longitude': '', // Not available in current data
-        'Property Building': prop.building_information || '',
-        'Property Owner Details': prop.listed_by_name || '',
-        'Content': prop.enhanced_description || prop.description || '',
-        'Matterport Link': prop.matterportLink || '',
-        'Categories': prop.property_type || '',
-        'What do you rent ?': prop.what_do || prop.property_type || '',
-        'Property Discount': '', // Not available in current data
-        'Property Deposit': '', // Not available in current data
-        'Property Tax': '', // Not available in current data
-        'Featured Property': 'No', // Default value
-        'Platinum Property': 'No', // Default value
-        'Premium Property': 'No', // Default value
-        'Feature and Ammenties': (prop.features || []).join(' | '),
-        'Term and Condition': prop.terms_and_condition || '',
-    }));
+    const csvData = data.map(prop => {
+        // Prioritize enhanced title, fallback to original title
+        const propertyTitle = prop.enhanced_title && prop.enhanced_title.trim() 
+            ? cleanTextData(prop.enhanced_title) 
+            : cleanTextData(prop.title || prop.original_title || 'No Title');
+            
+        // Get Firebase Storage URLs only
+        const firebaseImages = getFirebaseImageUrlsForExport(prop.image_urls || []);
+        
+        return {
+            'Title': propertyTitle,
+            'City': normalizeCityName(prop.city || ''),
+            'Property Price': extractPriceNumber(prop.price || ''),
+            'Property Size': extractAreaNumber(prop.area || ''),
+            'Property Address': cleanTextData(prop.location || ''),
+            'Image': firebaseImages, // Only Firebase Storage URLs
+            'Landlord Name': cleanTextData(prop.listed_by_name || ''),
+            'Landlord Email': cleanTextData(prop.listed_by_email || ''),
+            'Landlord Phone': cleanTextData(prop.listed_by_phone || ''),
+            'Property Country': 'UAE', // Default for UAE properties
+            'Neighborhood / Area': cleanTextData(prop.neighborhood || prop.county || ''),
+            'property_agent': cleanTextData(prop.listed_by_name || ''),
+            'Nationality': '', // Not available in current data
+            'Religion': '', // Not available in current data
+            'Tenant Type': cleanTextData(prop.tenant_type || ''),
+            'Property Display Status': 'Active', // Default status
+            'Property Gender Preference': '', // Not available in current data
+            'Property Living Room': '', // Not available in current data
+            'Property Approval Status': 'Approved', // Default status
+            'Property Furnishing Status': cleanTextData(prop.furnish_type || ''),
+            'Property Minimum Stay': '', // Not available in current data
+            'Property Maximum Stay': '', // Not available in current data
+            'Property Minimum Notice': '', // Not available in current data
+            'Property Bathroom': prop.bathrooms || 0,
+            'Property Bed': prop.bedrooms || 0,
+            'Property Room': prop.bedrooms || 0, // Using bedrooms as room count
+            'Property Latitude': '', // Not available in current data
+            'Property Longitude': '', // Not available in current data
+            'Property Building': cleanTextData(prop.building_information || ''),
+            'Property Owner Details': cleanTextData(prop.listed_by_name || ''),
+            'Content': cleanTextData(prop.enhanced_description || prop.description || ''),
+            'Matterport Link': prop.matterportLink || '',
+            'Categories': cleanTextData(prop.property_type || ''),
+            'What do you rent ?': cleanTextData(prop.what_do || prop.property_type || ''),
+            'Property Discount': '', // Not available in current data
+            'Property Deposit': '', // Not available in current data
+            'Property Tax': '', // Not available in current data
+            'Featured Property': 'No', // Default value
+            'Platinum Property': 'No', // Default value
+            'Premium Property': 'No', // Default value
+            'Feature and Ammenties': (prop.features || []).filter(f => f && f.trim()).map(f => cleanTextData(f)).join(' | '),
+            'Term and Condition': cleanTextData(prop.terms_and_condition || ''),
+        };
+    });
 
     const worksheet = utils.json_to_sheet(csvData, { header: csvHeaders, skipHeader: false });
     
-    // Add description row with field explanations
-    const descriptionRow = {
-        'Title': 'Property Title',
-        'City': 'City Name',
-        'Property Price': 'Price (numbers only)',
-        'Property Size': 'Size in sqft (numbers only)',
-        'Property Address': 'Full Address',
-        'Image': 'Image URLs separated by |',
-        'Landlord Name': 'Owner/Agent Name',
-        'Landlord Email': 'Contact Email',
-        'Landlord Phone': 'Contact Phone',
-        'Property Country': 'Country (UAE)',
-        'Neighborhood / Area': 'Area/Neighborhood',
-        'property_agent': 'Agent Name',
-        'Nationality': 'Owner Nationality',
-        'Religion': 'Religion Preference',
-        'Tenant Type': 'Tenant Type Preference',
-        'Property Display Status': 'Display Status',
-        'Property Gender Preference': 'Gender Preference',
-        'Property Living Room': 'Living Room Count',
-        'Property Approval Status': 'Approval Status',
-        'Property Furnishing Status': 'Furnishing Type',
-        'Property Minimum Stay': 'Minimum Stay Period',
-        'Property Maximum Stay': 'Maximum Stay Period',
-        'Property Minimum Notice': 'Notice Period',
-        'Property Bathroom': 'Bathroom Count',
-        'Property Bed': 'Bedroom Count',
-        'Property Room': 'Room Count',
-        'Property Latitude': 'GPS Latitude',
-        'Property Longitude': 'GPS Longitude',
-        'Property Building': 'Building Information',
-        'Property Owner Details': 'Owner Details',
-        'Content': 'Property Description',
-        'Matterport Link': 'Virtual Tour Link',
-        'Categories': 'Property Category',
-        'What do you rent ?': 'Rental Type',
-        'Property Discount': 'Discount Amount',
-        'Property Deposit': 'Security Deposit',
-        'Property Tax': 'Tax Information',
-        'Featured Property': 'Featured Status',
-        'Platinum Property': 'Platinum Status',
-        'Premium Property': 'Premium Status',
-        'Feature and Ammenties': 'Features and Amenities',
-        'Term and Condition': 'Terms and Conditions',
-    };
-    const descriptionRowArray = csvHeaders.map(header => descriptionRow[header as keyof typeof descriptionRow] || '');
-    utils.sheet_add_aoa(worksheet, [descriptionRowArray], { origin: 'A2' });
-
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, 'Properties');
 
     // Generate CSV output
     const csvOutput = write(workbook, { bookType: 'csv', type: 'string' });
     const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `${filename}.csv`);
+    saveAs(blob, `${filename}_legacy.csv`);
 };
 
 // Function to download data as an Excel file with complete headers
@@ -389,50 +456,60 @@ export const downloadExcel = (data: Property[], filename: string) => {
         'Premium Property', 'Feature and Ammenties', 'Term and Condition'
     ];
 
-    const excelData = data.map(prop => ({
-        'Title': prop.enhanced_title || prop.title || '',
-        'City': normalizeCityName(prop.city || ''),
-        'Property Price': extractPriceNumber(prop.price || ''),
-        'Property Size': extractAreaNumber(prop.area || ''),
-        'Property Address': prop.location || '',
-        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
-        'Landlord Name': prop.listed_by_name || '',
-        'Landlord Email': prop.listed_by_email || '',
-        'Landlord Phone': prop.listed_by_phone || '',
-        'Property Country': 'UAE',
-        'Neighborhood / Area': prop.neighborhood || prop.county || '',
-        'property_agent': prop.listed_by_name || '',
-        'Nationality': '',
-        'Religion': '',
-        'Tenant Type': prop.tenant_type || '',
-        'Property Display Status': 'Active',
-        'Property Gender Preference': '',
-        'Property Living Room': '',
-        'Property Approval Status': 'Approved',
-        'Property Furnishing Status': prop.furnish_type || '',
-        'Property Minimum Stay': '',
-        'Property Maximum Stay': '',
-        'Property Minimum Notice': '',
-        'Property Bathroom': prop.bathrooms || 0,
-        'Property Bed': prop.bedrooms || 0,
-        'Property Room': prop.bedrooms || 0,
-        'Property Latitude': '',
-        'Property Longitude': '',
-        'Property Building': prop.building_information || '',
-        'Property Owner Details': prop.listed_by_name || '',
-        'Content': prop.enhanced_description || prop.description || '',
-        'Matterport Link': prop.matterportLink || '',
-        'Categories': prop.property_type || '',
-        'What do you rent ?': prop.what_do || prop.property_type || '',
-        'Property Discount': '',
-        'Property Deposit': '',
-        'Property Tax': '',
-        'Featured Property': 'No',
-        'Platinum Property': 'No',
-        'Premium Property': 'No',
-        'Feature and Ammenties': (prop.features || []).join(' | '),
-        'Term and Condition': prop.terms_and_condition || '',
-    }));
+    const excelData = data.map(prop => {
+        // Prioritize enhanced title, fallback to original title
+        const propertyTitle = prop.enhanced_title && prop.enhanced_title.trim() 
+            ? cleanTextData(prop.enhanced_title) 
+            : cleanTextData(prop.title || prop.original_title || 'No Title');
+            
+        // Get Firebase Storage URLs only
+        const firebaseImages = getFirebaseImageUrlsForExport(prop.image_urls || []);
+        
+        return {
+            'Title': propertyTitle,
+            'City': normalizeCityName(prop.city || ''),
+            'Property Price': extractPriceNumber(prop.price || ''),
+            'Property Size': extractAreaNumber(prop.area || ''),
+            'Property Address': cleanTextData(prop.location || ''),
+            'Image': firebaseImages, // Only Firebase Storage URLs
+            'Landlord Name': cleanTextData(prop.listed_by_name || ''),
+            'Landlord Email': cleanTextData(prop.listed_by_email || ''),
+            'Landlord Phone': cleanTextData(prop.listed_by_phone || ''),
+            'Property Country': 'UAE',
+            'Neighborhood / Area': cleanTextData(prop.neighborhood || prop.county || ''),
+            'property_agent': cleanTextData(prop.listed_by_name || ''),
+            'Nationality': '',
+            'Religion': '',
+            'Tenant Type': cleanTextData(prop.tenant_type || ''),
+            'Property Display Status': 'Active',
+            'Property Gender Preference': '',
+            'Property Living Room': '',
+            'Property Approval Status': 'Approved',
+            'Property Furnishing Status': cleanTextData(prop.furnish_type || ''),
+            'Property Minimum Stay': '',
+            'Property Maximum Stay': '',
+            'Property Minimum Notice': '',
+            'Property Bathroom': prop.bathrooms || 0,
+            'Property Bed': prop.bedrooms || 0,
+            'Property Room': prop.bedrooms || 0,
+            'Property Latitude': '',
+            'Property Longitude': '',
+            'Property Building': cleanTextData(prop.building_information || ''),
+            'Property Owner Details': cleanTextData(prop.listed_by_name || ''),
+            'Content': cleanTextData(prop.enhanced_description || prop.description || ''),
+            'Matterport Link': prop.matterportLink || '',
+            'Categories': cleanTextData(prop.property_type || ''),
+            'What do you rent ?': cleanTextData(prop.what_do || prop.property_type || ''),
+            'Property Discount': '',
+            'Property Deposit': '',
+            'Property Tax': '',
+            'Featured Property': 'No',
+            'Platinum Property': 'No',
+            'Premium Property': 'No',
+            'Feature and Ammenties': (prop.features || []).filter(f => f && f.trim()).map(f => cleanTextData(f)).join(' | '),
+            'Term and Condition': cleanTextData(prop.terms_and_condition || ''),
+        };
+    });
   
     const worksheet = utils.json_to_sheet(excelData, { header: excelHeaders });
     const workbook = utils.book_new();
@@ -463,118 +540,56 @@ export const downloadFilteredCsv = (data: Property[], filename: string, filterIn
         alert("No data to export.");
         return;
     }
-    
-    // Complete headers as specified
-    const csvHeaders = [
-        'Export Info', 'Title', 'City', 'Property Price', 'Property Size', 'Property Address', 'Image',
-        'Landlord Name', 'Landlord Email', 'Landlord Phone', 'Property Country', 'Neighborhood / Area',
-        'property_agent', 'Nationality', 'Religion', 'Tenant Type', 'Property Display Status',
-        'Property Gender Preference', 'Property Living Room', 'Property Approval Status',
-        'Property Furnishing Status', 'Property Minimum Stay', 'Property Maximum Stay',
-        'Property Minimum Notice', 'Property Bathroom', 'Property Bed', 'Property Room',
-        'Property Latitude', 'Property Longitude', 'Property Building', 'Property Owner Details',
-        'Content', 'Matterport Link', 'Categories', 'What do you rent ?', 'Property Discount',
-        'Property Deposit', 'Property Tax', 'Featured Property', 'Platinum Property',
-        'Premium Property', 'Feature and Ammenties', 'Term and Condition', 'Scraped Date'
-    ];
 
-    // Add metadata row
-    const metadataRow = [
-        `Export Date: ${new Date().toLocaleDateString()}, Records: ${data.length}, Filter: ${filterInfo || 'None'}`,
-        ...Array(csvHeaders.length - 1).fill('')
+    // CLEAN headers - only essential fields
+    const csvHeaders = [
+        'ID', 'Title', 'Price', 'City', 'Location', 'Property Type', 
+        'Bedrooms', 'Bathrooms', 'Area', 'Description', 
+        'Features', 'Contact Name', 'Contact Phone', 'Contact Email',
+        'Images', 'Scraped Date'
     ];
 
     const csvData = data.map(prop => ({
-        'Export Info': '', // Empty for data rows
-        'Title': prop.enhanced_title || prop.title || '',
+        'ID': prop.id || '',
+        'Title': cleanTextData(prop.enhanced_title || prop.title || ''),
+        'Price': extractPriceNumber(prop.price || ''),
         'City': normalizeCityName(prop.city || ''),
-        'Property Price': extractPriceNumber(prop.price || ''),
-        'Property Size': extractAreaNumber(prop.area || ''),
-        'Property Address': prop.location || '',
-        'Image': (prop.image_urls || []).map(getAbsoluteUrl).join(' | '),
-        'Landlord Name': prop.listed_by_name || '',
-        'Landlord Email': prop.listed_by_email || '',
-        'Landlord Phone': prop.listed_by_phone || '',
-        'Property Country': 'UAE',
-        'Neighborhood / Area': prop.neighborhood || prop.county || '',
-        'property_agent': prop.listed_by_name || '',
-        'Nationality': '',
-        'Religion': '',
-        'Tenant Type': prop.tenant_type || '',
-        'Property Display Status': 'Active',
-        'Property Gender Preference': '',
-        'Property Living Room': '',
-        'Property Approval Status': 'Approved',
-        'Property Furnishing Status': prop.furnish_type || '',
-        'Property Minimum Stay': '',
-        'Property Maximum Stay': '',
-        'Property Minimum Notice': '',
-        'Property Bathroom': prop.bathrooms || 0,
-        'Property Bed': prop.bedrooms || 0,
-        'Property Room': prop.bedrooms || 0,
-        'Property Latitude': '',
-        'Property Longitude': '',
-        'Property Building': prop.building_information || '',
-        'Property Owner Details': prop.listed_by_name || '',
-        'Content': prop.enhanced_description || prop.description || '',
-        'Matterport Link': prop.matterportLink || '',
-        'Categories': prop.property_type || '',
-        'What do you rent ?': prop.what_do || prop.property_type || '',
-        'Property Discount': '',
-        'Property Deposit': '',
-        'Property Tax': '',
-        'Featured Property': 'No',
-        'Platinum Property': 'No',
-        'Premium Property': 'No',
-        'Feature and Ammenties': (prop.features || []).join(' | '),
-        'Term and Condition': prop.terms_and_condition || '',
+        'Location': cleanTextData(prop.location || ''),
+        'Property Type': cleanTextData(prop.property_type || ''),
+        'Bedrooms': prop.bedrooms || 0,
+        'Bathrooms': prop.bathrooms || 0,
+        'Area': extractAreaNumber(prop.area || ''),
+        'Description': cleanTextData(prop.enhanced_description || prop.description || '').substring(0, 500), // Limit description length
+        'Features': (prop.features || []).filter(f => f && f.trim()).map(f => cleanTextData(f)).join(' | '),
+        'Contact Name': cleanTextData(prop.listed_by_name || ''),
+        'Contact Phone': cleanTextData(prop.listed_by_phone || ''),
+        'Contact Email': cleanTextData(prop.listed_by_email || ''),
+        'Images': getFirebaseImageUrlsForExport(prop.image_urls || []), // Firebase Storage URLs only
         'Scraped Date': new Date(prop.scraped_at || new Date()).toLocaleDateString(),
     }));
 
+    // Create clean worksheet
     const worksheet = utils.json_to_sheet([]);
     
-    // Add metadata row
-    utils.sheet_add_aoa(worksheet, [metadataRow], { origin: 'A1' });
-    
-    // Add headers
-    utils.sheet_add_aoa(worksheet, [csvHeaders], { origin: 'A2' });
-    
-    // Add description row
-    const descriptionRow = [
-        'Filter/Export Info',
-        'Property Id',
-        'Description',
-        'image URL 1 | image URL 2 | ...',
-        'Matterport',
-        'Rental type',
-        'Price (numbers only)',
-        'City (ajman/sharjah/dubai/abu dhabi)',
-        'Beds property',
-        'Baths property',
-        'Sqft property (numbers only)',
-        'Tenant Type',
-        'Rental Period',
-        'Furnish type',
-        'Floor number',
-        'DLD permit number',
-        'DED license number',
-        'Rera registration number',
-        'DLD BRN',
-        'Reference Id',
-        'Take them with the | pipe SEPERATED',
-        'Term and Condition (Check on website and update)',
-        'Date when property was scraped'
-    ];
-    utils.sheet_add_aoa(worksheet, [descriptionRow], { origin: 'A3' });
-
-    // Add data starting from row 4
-    const dataArray = csvData.map(row => csvHeaders.map(header => row[header as keyof typeof row] || ''));
-    utils.sheet_add_aoa(worksheet, dataArray, { origin: 'A4' });
+    // Add simple filter info row if provided
+    if (filterInfo) {
+        utils.sheet_add_aoa(worksheet, [[`Export: ${data.length} properties | Filter: ${filterInfo}`]], { origin: 'A1' });
+        // Add headers starting from row 2
+        utils.sheet_add_aoa(worksheet, [csvHeaders], { origin: 'A2' });
+        // Add data starting from row 3
+        const dataArray = csvData.map(row => csvHeaders.map(header => row[header as keyof typeof row] || ''));
+        utils.sheet_add_aoa(worksheet, dataArray, { origin: 'A3' });
+    } else {
+        // No filter info, start headers from row 1
+        utils.sheet_add_aoa(worksheet, [csvHeaders], { origin: 'A1' });
+        const dataArray = csvData.map(row => csvHeaders.map(header => row[header as keyof typeof row] || ''));
+        utils.sheet_add_aoa(worksheet, dataArray, { origin: 'A2' });
+    }
 
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, 'Properties');
 
-    // Generate CSV output
+    // Generate clean CSV output
     const csvOutput = write(workbook, { bookType: 'csv', type: 'string' });
     const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, `${filename}.csv`);
@@ -674,4 +689,69 @@ export const generateFilteredFilename = (baseFilename: string, startDate?: strin
   }
   
   return filename;
+};
+
+// Premium Clean Export - Specifically designed for clear titles and Firebase URLs
+export const downloadPremiumCsv = (data: Property[], filename: string) => {
+    if (data.length === 0) {
+        alert("No data to export.");
+        return;
+    }
+    
+    // Ultra-clean headers focusing on most important fields
+    const csvHeaders = [
+        'Property ID', 'Title', 'Enhanced Title', 'Price (AED)', 
+        'City', 'Location', 'Property Type', 'Bedrooms', 'Bathrooms', 
+        'Area (sq ft)', 'Description', 'Firebase Images', 
+        'Contact Name', 'Contact Phone', 'Contact Email', 'Date Added'
+    ];
+
+    const csvData = data.map(prop => {
+        // Get the best available title
+        const enhancedTitle = prop.enhanced_title && prop.enhanced_title.trim() 
+            ? cleanTextData(prop.enhanced_title) 
+            : '';
+        const originalTitle = cleanTextData(prop.title || prop.original_title || '');
+        
+        // Get only Firebase Storage URLs - no data URLs or external URLs
+        const firebaseImages = getFirebaseImageUrlsForExport(prop.image_urls || []);
+        
+        // Clean description
+        const cleanDescription = cleanTextData(
+            prop.enhanced_description || prop.description || ''
+        ).substring(0, 300); // Keep it concise
+        
+        return {
+            'Property ID': prop.id || '',
+            'Title': originalTitle,
+            'Enhanced Title': enhancedTitle,
+            'Price (AED)': extractPriceNumber(prop.price || ''),
+            'City': normalizeCityName(prop.city || ''),
+            'Location': cleanTextData(prop.location || ''),
+            'Property Type': cleanTextData(prop.property_type || ''),
+            'Bedrooms': prop.bedrooms || 0,
+            'Bathrooms': prop.bathrooms || 0,
+            'Area (sq ft)': extractAreaNumber(prop.area || ''),
+            'Description': cleanDescription,
+            'Firebase Images': firebaseImages, // ONLY Firebase Storage URLs
+            'Contact Name': cleanTextData(prop.listed_by_name || ''),
+            'Contact Phone': cleanTextData(prop.listed_by_phone || ''),
+            'Contact Email': cleanTextData(prop.listed_by_email || ''),
+            'Date Added': new Date(prop.scraped_at || new Date()).toLocaleDateString(),
+        };
+    });
+
+    // Create worksheet with ultra-clean formatting
+    const worksheet = utils.json_to_sheet(csvData, { header: csvHeaders, skipHeader: false });
+    
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, 'Clean Properties');
+
+    // Generate clean CSV output
+    const csvOutput = write(workbook, { bookType: 'csv', type: 'string' });
+    const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `${filename}_premium_clean.csv`);
+    
+    // Show success message
+    console.log(`✅ Exported ${data.length} properties with clean titles and Firebase Storage URLs`);
 };

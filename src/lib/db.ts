@@ -16,22 +16,25 @@ export async function getHistory(): Promise<HistoryEntry[]> {
 }
 
 export async function savePropertiesToDb(newProperties: Property[]): Promise<void> {
-    console.log(`🔄 Starting save process for ${newProperties.length} properties`);
+    console.log(`🔄 Starting EFFICIENT save process for ${newProperties.length} properties`);
     
-    const existingProperties = await database.getAllProperties();
-    console.log(`📊 Found ${existingProperties.length} existing properties in database`);
+    // EFFICIENT APPROACH: Save each property individually using updateProperty
+    // This avoids loading and re-saving all existing properties
     
-    // We'll just use saveProperty's duplicate detection and skip our own here
-    // This avoids double-checking and potential inconsistencies between the two methods
-    
-    console.log(`💾 Saving ${newProperties.length} properties to database`);
-    try {
-        await database.saveProperties([...newProperties, ...existingProperties]);
-        console.log(`✅ Successfully saved properties to database`);
-    } catch (error) {
-        console.error(`❌ Error saving properties to database:`, error);
-        throw error; // Re-throw so the calling function can handle it
+    const results = [];
+    for (const property of newProperties) {
+        try {
+            console.log(`💾 Saving individual property: ${property.original_title || property.title}`);
+            await database.updateProperty(property);
+            results.push({ success: true, id: property.id });
+        } catch (error) {
+            console.error(`❌ Error saving property ${property.id}:`, error);
+            results.push({ success: false, id: property.id, error });
+        }
     }
+    
+    const successCount = results.filter(r => r.success).length;
+    console.log(`✅ Successfully saved ${successCount}/${newProperties.length} properties using efficient method`);
     
     revalidatePath('/database');
 }

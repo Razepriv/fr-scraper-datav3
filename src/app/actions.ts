@@ -6,6 +6,7 @@ import { extractPropertyInfo } from '@/ai/flows/extract-property-info';
 import { savePropertiesToDb, saveHistoryEntry, updatePropertyInDb, deletePropertyFromDb } from '@/lib/db';
 import { getDatabase } from '@/lib/database-adapter';
 import { getImageStorage, downloadImageFromUrl } from '@/lib/image-storage';
+import { syncPropertyImagesToFirebase, syncPropertiesImagesToFirebase } from '@/lib/image-sync';
 import { ENV_CONFIG } from '@/lib/config';
 import { revalidatePath } from 'next/cache';
 import { type Property, type HistoryEntry } from '@/lib/types';
@@ -101,9 +102,8 @@ async function processScrapedData(properties: any[], originalUrl: string, histor
         console.log(`[Image Processing] Processing ALL ${allImageUrls.length} out of ${imageUrls.length} images with hybrid storage strategy`);
 
         const downloadPromises = allImageUrls.map((imgUrl: string, i: number) => {
-            // First 8 images: Try compressed data URLs
-            // Remaining images: Use external URLs or optimized placeholders
-            const preferDataUrl = i < maxDataUrlImages;
+            // Force Firebase Storage for all images instead of data URLs
+            const preferDataUrl = false; // Always prefer Firebase Storage
             return downloadImage(imgUrl, propertyId, i, false, preferDataUrl);
         });
         const downloadedUrls = (await Promise.all(downloadPromises)).filter((url): url is string => url !== null);
@@ -313,7 +313,15 @@ export async function scrapeHtml(html: string, originalUrl: string = 'scraped-fr
     } catch (extractionError) {
         console.error(`❌ AI extraction error:`, extractionError);
         const errorMessage = extractionError instanceof Error ? extractionError.message : 'Unknown AI extraction error';
-        throw new Error(`AI extraction failed: ${errorMessage}`);
+        
+        // Provide more specific error messages
+        if (errorMessage.includes('Unexpected token') || errorMessage.includes('JSON')) {
+            throw new Error(`AI service returned invalid response. This might be due to API quota limits or configuration issues. Please try again later.`);
+        } else if (errorMessage.includes('API key')) {
+            throw new Error(`AI service configuration error. Please check the API settings.`);
+        } else {
+            throw new Error(`AI extraction failed: ${errorMessage}`);
+        }
     }
 }
 
@@ -354,38 +362,15 @@ export async function saveProperty(property: Property) {
             property.id = `prop-${Date.now()}-${Math.floor(Math.random() * 100)}`;
         }
 
-        // Get all existing properties 
+        // Get database adapter
         const database = getDatabase();
-        const existingProperties = await database.getAllProperties();
-        console.log(`📊 Found ${existingProperties.length} existing properties in database`);
         
-        // TEMPORARILY DISABLE DUPLICATE DETECTION TO DEBUG THE ISSUE
-        // Let's see what's actually happening by logging all potential matches
-        console.log(`🔍 Checking for potential duplicates...`);
+        // DUPLICATION CHECK DISABLED - Allow all saves
+        console.log(`⚠️ Duplicate detection disabled - proceeding with save`);
         
-        const potentialMatches = existingProperties.filter(
-            (p) => p.original_url === property.original_url || 
-                   p.original_title === property.original_title
-        );
-        
-        if (potentialMatches.length > 0) {
-            console.log(`⚠️ Found ${potentialMatches.length} potential matches:`);
-            potentialMatches.forEach((match, index) => {
-                console.log(`  ${index + 1}. ID: ${match.id}`);
-                console.log(`     URL: "${match.original_url}"`);
-                console.log(`     Title: "${match.original_title}"`);
-                console.log(`     URL Match: ${match.original_url === property.original_url}`);
-                console.log(`     Title Match: ${match.original_title === property.original_title}`);
-            });
-        }
-
-        // FOR NOW: SKIP DUPLICATE CHECK ENTIRELY - LET'S JUST SAVE IT
-        console.log(`✅ Skipping duplicate check - saving property directly`);
-        
-        // Save the property directly using database adapter
+        // EFFICIENT SAVE: Save only the new property using updateProperty
         try {
-            const allProperties = [...existingProperties, property];
-            await database.saveProperties(allProperties);
+            await database.updateProperty(property);
             
             console.log(`💾 Successfully saved property: ${property.original_title}`);
             
@@ -462,4 +447,134 @@ export async function extractContactsFromAllPropertiesAction() {
 export async function updatePropertyWithExtractedContactsAction(propertyId: string) {
     const { updatePropertyWithExtractedContactsServer } = await import('@/lib/contact-extraction');
     return await updatePropertyWithExtractedContactsServer(propertyId);
+}
+
+// Image sync actions for Firebase Storage
+export async function syncPropertyImagesToFirebaseAction(property: Property) {
+    try {
+        console.log(`🔄 Syncing images for property ${property.id} to Firebase Storage...`);
+        const result = await syncPropertyImagesToFirebase(property);
+        
+        if (result.success && result.firebaseUrls.length > 0) {
+            // Update the property in database with Firebase URLs
+            const database = getDatabase();
+            const updatedProperty: Property = {
+                ...property,
+                image_urls: result.firebaseUrls,
+                image_url: result.firebaseUrls[0]
+            };
+            
+            await database.updateProperty(updatedProperty);
+            console.log(`✅ Successfully synced and updated property ${property.id} with ${result.firebaseUrls.length} Firebase Storage URLs`);
+            
+            // Revalidate to show updated images
+            revalidatePath('/database');
+            
+            return { 
+                success: true, 
+                message: `Successfully synced ${result.syncedImageCount}/${result.originalImageCount} images to Firebase Storage`,
+                firebaseUrls: result.firebaseUrls
+            };
+        } else {
+            return { 
+                success: false, 
+                message: `Failed to sync images: ${result.errors.join(', ')}`,
+                firebaseUrls: []
+            };
+        }
+    } catch (error) {
+        console.error(`❌ Error syncing property images:`, error);
+        return { 
+            success: false, 
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
+            firebaseUrls: []
+        };
+    }
+}
+
+export async function syncAllPropertiesImagesToFirebaseAction() {
+    try {
+        console.log(`🚀 Starting bulk sync of all property images to Firebase Storage...`);
+        
+        // Get all properties from database
+        const database = getDatabase();
+        const allProperties = await database.getAllProperties();
+        
+        console.log(`📊 Found ${allProperties.length} properties to sync`);
+        
+        if (allProperties.length === 0) {
+            return {
+                success: true,
+                message: 'No properties found to sync',
+                stats: {
+                    totalProperties: 0,
+                    successfulProperties: 0,
+                    totalImages: 0,
+                    syncedImages: 0
+                }
+            };
+        }
+        
+        // Sync images for all properties
+        const result = await syncPropertiesImagesToFirebase(allProperties);
+        
+        // Revalidate to show updated images
+        revalidatePath('/database');
+        
+        return {
+            success: result.errors.length === 0,
+            message: result.errors.length === 0 
+                ? `Successfully synced images for ${result.successfulProperties}/${result.totalProperties} properties`
+                : `Synced with ${result.errors.length} errors. Check console for details.`,
+            stats: {
+                totalProperties: result.totalProperties,
+                successfulProperties: result.successfulProperties,
+                totalImages: result.totalImages,
+                syncedImages: result.syncedImages
+            },
+            errors: result.errors
+        };
+        
+    } catch (error) {
+        console.error(`❌ Error syncing all property images:`, error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
+            stats: {
+                totalProperties: 0,
+                successfulProperties: 0,
+                totalImages: 0,
+                syncedImages: 0
+            }
+        };
+    }
+}
+
+// Refresh database action
+export async function refreshDatabase(): Promise<{ success: boolean; message: string; count: number }> {
+    try {
+        console.log('🔄 Refreshing database data...');
+        
+        // Revalidate the database page to force fresh data fetch
+        revalidatePath('/database');
+        
+        // Get fresh count for feedback
+        const db = getDatabase();
+        const properties = await db.getAllProperties();
+        
+        console.log(`✅ Database refreshed - ${properties.length} properties loaded`);
+        
+        return {
+            success: true,
+            message: `Database refreshed successfully. ${properties.length} properties loaded.`,
+            count: properties.length
+        };
+    } catch (error) {
+        console.error('❌ Failed to refresh database:', error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Failed to refresh database',
+            count: 0
+        };
+    }
 }

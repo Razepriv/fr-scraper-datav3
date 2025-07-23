@@ -331,7 +331,7 @@ class ExternalImageStorage implements ImageStorageAdapter {
       } else {
         // Server-side: Use Sharp for compression
         try {
-          const sharp = await import('sharp');
+          const sharp = await import(/* webpackIgnore: true */ 'sharp');
           
           // More aggressive compression for ExternalImageStorage
           const compressedBuffer = await sharp.default(buffer)
@@ -734,7 +734,7 @@ class FirebaseStorageAdapter implements ImageStorageAdapter {
       } else {
         // Server-side: Use Sharp for compression
         try {
-          const sharp = await import('sharp');
+          const sharp = await import(/* webpackIgnore: true */ 'sharp');
           
           // Compress using Sharp
           const compressedBuffer = await sharp.default(buffer)

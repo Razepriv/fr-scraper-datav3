@@ -16,6 +16,7 @@ import { PropertyImageGallery } from './property-image-gallery';
 interface ResultsTableProps {
   properties: Property[];
   onSave: (property: Property) => void;
+  savingPropertyId?: string | null;
 }
 
 interface DetailItemProps {
@@ -54,7 +55,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ icon: Icon, label, value }) => 
   );
 };
 
-export function ResultsTable({ properties, onSave }: ResultsTableProps) {
+export function ResultsTable({ properties, onSave, savingPropertyId }: ResultsTableProps) {
   const [enhanceContent, setEnhanceContent] = useState<{ original: string, enhanced: string } | null>(null);
 
   if (properties.length === 0) {
@@ -111,8 +112,13 @@ export function ResultsTable({ properties, onSave }: ResultsTableProps) {
                   >
                    <Sparkles className="mr-2" /> View AI Enhancement
                  </Button>
-                 <Button size="sm" onClick={() => onSave(prop)}>
-                   <Save className="mr-2" /> Save to Database
+                 <Button 
+                    size="sm" 
+                    onClick={() => onSave(prop)}
+                    disabled={savingPropertyId === prop.id}
+                  >
+                   <Save className="mr-2" /> 
+                   {savingPropertyId === prop.id ? 'Saving...' : 'Save to Database'}
                   </Button>
               </div>
               <Separator />

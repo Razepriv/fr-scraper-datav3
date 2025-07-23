@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 9002",
+    "dev": "next dev -p 3000",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -19,6 +19,8 @@
     "deploy:vercel": "vercel --prod",
     "preview:vercel": "vercel",
     "vercel:env": "vercel env ls",
+    "vercel:env:add": "vercel env add",
+    "vercel:env:rm": "vercel env rm",
     "make-images-public": "tsx scripts/make-firebase-images-public.ts",
     "firebase-access-help": "node scripts/firebase-access-helper.js",
     "test-export": "tsx scripts/test-export-functionality.ts",
@@ -28,7 +30,9 @@
     "upload-images:ts": "tsx scripts/bulk-upload-to-firebase.ts",
     "test-firebase": "tsx scripts/test-firebase-storage.ts",
     "test-production": "node test-production-readiness.js",
-    "verify-build": "npm run typecheck && npm run lint && npm run build"
+    "verify-build": "npm run typecheck && npm run lint && npm run build",
+    "setup:vercel": "npm run vercel:env:add GEMINI_API_KEY && npm run vercel:env:add NEXT_PUBLIC_FIREBASE_API_KEY",
+    "setup:firebase": "firebase login && firebase use fr-toolv2"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
@@ -66,6 +70,7 @@
     "iron-session": "^8.0.2",
     "lucide-react": "^0.475.0",
     "next": "15.3.3",
+    "node-fetch": "^2.7.0",
     "patch-package": "^8.0.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",

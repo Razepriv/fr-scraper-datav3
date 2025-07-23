@@ -8,13 +8,16 @@
   "env": {
     "NODE_ENV": "production",
     "STORAGE_TYPE": "database",
-    "UPLOAD_PROVIDER": "firebase",
-    "GEMINI_API_KEY": "",
+    "UPLOAD_PROVIDER": "external",
     "ENABLE_BULK_DELETE": "true",
     "ENABLE_EXPORT": "true",
     "ENABLE_AI_FEATURES": "true",
     "MAX_PROPERTIES": "10000",
-    "MAX_UPLOAD_SIZE": "10485760"
+    "MAX_UPLOAD_SIZE": "10485760",
+    "MAX_IMAGES_PER_PROPERTY": "15",
+    "MAX_DATA_URL_IMAGES": "8",
+    "MAX_COMPRESSED_IMAGE_SIZE": "60000",
+    "MAX_DOCUMENT_SIZE": "900000"
   },
   "build": {
     "env": {

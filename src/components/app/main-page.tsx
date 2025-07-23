@@ -36,6 +36,7 @@ const HtmlFormSchema = z.object({
 export function MainPage() {
   const [results, setResults] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [bulkUrls, setBulkUrls] = useState('');
   
@@ -133,15 +134,31 @@ export function MainPage() {
   };
 
   const handleSaveProperty = useCallback((property: Property) => {
+    console.log('🔘 Save button clicked for property:', property.title);
+    console.log('📋 Property data to save:', {
+      id: property.id,
+      title: property.title,
+      original_title: property.original_title,
+      url: property.original_url,
+      hasImages: property.image_urls?.length || 0
+    });
+    
+    setSavingPropertyId(property.id);
+    
     startTransition(async () => {
       try {
+        console.log('🚀 Starting save property transaction...');
         const result = await saveProperty(property);
+        console.log('📊 Save property result:', result);
+        
         if (result.success) {
+          console.log('✅ Property saved successfully');
           toast({
             title: "Property Saved",
             description: result.message || "The property has been added to your database.",
           });
         } else {
+          console.log('❌ Property save failed:', result.message);
           toast({
             variant: "destructive",
             title: "Save Failed",
@@ -149,11 +166,14 @@ export function MainPage() {
           });
         }
       } catch (error) {
+        console.error('❌ Exception during save:', error);
         toast({
           variant: "destructive",
           title: "Save Failed",
           description: "Could not save the property to the database.",
         });
+      } finally {
+        setSavingPropertyId(null);
       }
     });
   }, [toast]);
@@ -350,6 +370,7 @@ export function MainPage() {
                 <ResultsTable 
                   properties={filteredResults}
                   onSave={handleSaveProperty}
+                  savingPropertyId={savingPropertyId}
                 />
               </>
             )}

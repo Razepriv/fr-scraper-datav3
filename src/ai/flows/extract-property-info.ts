@@ -147,6 +147,15 @@ const extractPropertyInfoFlow = ai.defineFlow(
           message: error.message,
           stack: error.stack
         });
+        
+        // If it's a JSON parsing error, it might be due to API quota or key issues
+        if (error.message.includes('Unexpected token') || error.message.includes('JSON')) {
+          console.error("🚨 JSON parsing error detected - likely AI API response issue");
+          console.error("🔧 Checking API key availability:", {
+            hasGeminiKey: !!process.env.GEMINI_API_KEY,
+            keyPreview: process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.substring(0, 10)}...` : 'Not found'
+          });
+        }
       }
       // Return an empty object to prevent the entire scraping process from failing
       // if the AI model returns malformed data.
