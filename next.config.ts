@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true, // Temporarily ignore for deployment setup
   },
 
+  // Turbopack configuration (empty to allow Webpack fallback in Next.js 16)
+  turbopack: {},
+
   // Configure images for SSR and external sources
   images: {
     remotePatterns: [
