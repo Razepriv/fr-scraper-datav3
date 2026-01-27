@@ -69,7 +69,7 @@
     "genkitx-openai": "^0.30.0",
     "iron-session": "^8.0.2",
     "lucide-react": "^0.475.0",
-    "next": "15.3.3",
+    "next": "^16.1.5",
     "node-fetch": "^2.7.0",
     "patch-package": "^8.0.0",
     "playwright": "^1.58.0",
