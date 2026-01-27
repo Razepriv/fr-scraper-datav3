@@ -4,11 +4,6 @@ import path from 'path'
 const nextConfig: NextConfig = {
   // Optimized for both Vercel and Firebase App Hosting deployment
 
-  // Disable ESLint during production builds for faster deployment
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // TypeScript configuration for better module resolution
   typescript: {
     ignoreBuildErrors: true, // Temporarily ignore for deployment setup
@@ -61,25 +56,6 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-  },
-
-  // Increase body size limit for scraping large HTML
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '10mb',
-      allowedOrigins: [
-        'localhost:3000',
-        'localhost:9002',
-        'localhost:9004',
-        'fr-toolv2.web.app',
-        'fr-toolv2.firebaseapp.com',
-        '*.firebaseapp.com',
-        '*.a.run.app',
-        '*.vercel.app',
-        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
-        process.env.NEXT_PUBLIC_BASE_URL || ''
-      ].filter(Boolean)
-    }
   },
 
   // Enable output file tracing for deployment optimization
