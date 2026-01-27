@@ -30,7 +30,7 @@ const UrlFormSchema = z.object({
 })
 
 const HtmlFormSchema = z.object({
-  html: z.string().min(100, { message: "Please enter a substantial amount of HTML."}),
+  html: z.string().min(100, { message: "Please enter a substantial amount of HTML." }),
 })
 
 export function MainPage() {
@@ -39,7 +39,7 @@ export function MainPage() {
   const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [bulkUrls, setBulkUrls] = useState('');
-  
+
   // Add filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('all');
@@ -56,7 +56,7 @@ export function MainPage() {
     resolver: zodResolver(HtmlFormSchema),
     defaultValues: { html: "" },
   })
-  
+
   const handleScrape = useCallback(async (scrapeAction: () => Promise<Property[] | null>) => {
     setIsLoading(true);
     setResults([]);
@@ -94,7 +94,7 @@ export function MainPage() {
   };
 
   const handleBulkSubmit = () => {
-    if(!bulkUrls.trim()){
+    if (!bulkUrls.trim()) {
       toast({ variant: "destructive", title: "Input Error", description: "URL list cannot be empty." });
       return;
     }
@@ -106,7 +106,7 @@ export function MainPage() {
     const file = e.target.files?.[0];
     if (file) readFile(file);
   };
-  
+
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -126,7 +126,7 @@ export function MainPage() {
     }
     reader.readAsText(file);
   };
-  
+
   const handleDragEvents = (e: DragEvent<HTMLDivElement>, dragging: boolean) => {
     e.preventDefault();
     e.stopPropagation();
@@ -142,15 +142,15 @@ export function MainPage() {
       url: property.original_url,
       hasImages: property.image_urls?.length || 0
     });
-    
+
     setSavingPropertyId(property.id);
-    
+
     startTransition(async () => {
       try {
         console.log('🚀 Starting save property transaction...');
         const result = await saveProperty(property);
         console.log('📊 Save property result:', result);
-        
+
         if (result.success) {
           console.log('✅ Property saved successfully');
           toast({
@@ -185,7 +185,7 @@ export function MainPage() {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(property => 
+      filtered = filtered.filter(property =>
         property.title.toLowerCase().includes(query) ||
         property.description.toLowerCase().includes(query) ||
         property.location.toLowerCase().includes(query) ||
@@ -198,7 +198,7 @@ export function MainPage() {
 
     // Property type filter
     if (selectedPropertyType !== 'all') {
-      filtered = filtered.filter(property => 
+      filtered = filtered.filter(property =>
         property.property_type.toLowerCase() === selectedPropertyType.toLowerCase()
       );
     }
@@ -214,103 +214,151 @@ export function MainPage() {
 
   return (
     <>
-      <div className="w-full max-w-5xl mx-auto">
-        <Tabs defaultValue="url" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
-            <TabsTrigger value="url">Scrape by URL</TabsTrigger>
-            <TabsTrigger value="html">Scrape by HTML</TabsTrigger>
-            <TabsTrigger value="bulk">Bulk Scrape</TabsTrigger>
-          </TabsList>
+      <div className="w-full max-w-6xl mx-auto space-y-8">
 
-          <TabsContent value="url">
-            <Form {...urlForm}>
-              <form onSubmit={urlForm.handleSubmit(onUrlSubmit)} className="space-y-4 card-glass p-6 rounded-b-lg">
-                <FormField
-                  control={urlForm.control}
-                  name="url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Property URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://example.com/property/123" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                  {isLoading ? <Loader2 className="animate-spin" /> : "Scrape URL"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </form>
-            </Form>
-          </TabsContent>
+        {/* Hero Section */}
+        <div className="text-center space-y-4 py-8 animate-in fade-in slide-in-from-bottom-3 duration-700">
+          <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary mb-2">
+            <span>✨ AI-Powered Extraction</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Transform Real Estate Data into <span className="text-gradient">Actionable Insights</span>
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Instantly scrape, analyze, and structure property data from any URL with our advanced AI engine.
+          </p>
+        </div>
 
-          <TabsContent value="html">
-            <Form {...htmlForm}>
-                <form onSubmit={htmlForm.handleSubmit(onHtmlSubmit)} className="space-y-4 card-glass p-6 rounded-b-lg">
+        <div className="card-glass rounded-2xl p-1 shadow-2xl ring-1 ring-white/20">
+          <Tabs defaultValue="url" className="w-full">
+            <div className="px-6 pt-6 pb-2">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto p-1 bg-muted/50 rounded-xl">
+                <TabsTrigger value="url" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md py-3 transition-all duration-300">Scrape by URL</TabsTrigger>
+                <TabsTrigger value="html" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md py-3 transition-all duration-300">Scrape by HTML</TabsTrigger>
+                <TabsTrigger value="bulk" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md py-3 transition-all duration-300">Bulk Scrape</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="url" className="mt-0 focus-visible:ring-0">
+              <Form {...urlForm}>
+                <form onSubmit={urlForm.handleSubmit(onUrlSubmit)} className="space-y-6 p-6 sm:p-10">
                   <FormField
-                    control={htmlForm.control}
-                    name="html"
+                    control={urlForm.control}
+                    name="url"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>HTML Source Code</FormLabel>
+                      <FormItem className="space-y-3">
+                        <FormLabel className="text-base font-semibold">Property URL</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Paste HTML source code here..." className="min-h-[200px]" {...field} />
+                          <div className="relative group">
+                            <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                              placeholder="Paste a link to any property listing (e.g. Zillow, Rightmove, etc.)"
+                              className="pl-10 h-12 text-base transition-all border-muted-foreground/20 focus:border-primary/50 focus:ring-primary/20 bg-white/50"
+                              {...field}
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                    {isLoading ? <Loader2 className="animate-spin" /> : "Scrape HTML"}
-                     <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isLoading} className="w-full sm:w-auto h-11 px-8 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all rounded-full text-base">
+                      {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Start Extraction"}
+                      {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                    </Button>
+                  </div>
                 </form>
-            </Form>
-          </TabsContent>
+              </Form>
+            </TabsContent>
 
-          <TabsContent value="bulk">
-            <div className="card-glass p-6 rounded-b-lg space-y-4">
-              <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                  ${isDragging ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}
-                onDrop={handleDrop}
-                onDragOver={(e) => handleDragEvents(e, true)}
-                onDragEnter={(e) => handleDragEvents(e, true)}
-                onDragLeave={(e) => handleDragEvents(e, false)}
-                onClick={() => document.getElementById('file-upload')?.click()}
-              >
-                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Drag & drop a .txt, .csv file with URLs here, or click to select file.
-                </p>
-                <input id="file-upload" type="file" className="hidden" accept=".txt,.csv" onChange={handleFileChange} />
+            <TabsContent value="html" className="mt-0 focus-visible:ring-0">
+              <Form {...htmlForm}>
+                <form onSubmit={htmlForm.handleSubmit(onHtmlSubmit)} className="space-y-6 p-6 sm:p-10">
+                  <FormField
+                    control={htmlForm.control}
+                    name="html"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel className="text-base font-semibold">HTML Source Code</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Paste raw HTML content here for direct extraction..."
+                            className="min-h-[250px] font-mono text-sm leading-relaxed border-muted-foreground/20 focus:border-primary/50 focus:ring-primary/20 bg-white/50 resize-y"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isLoading} className="w-full sm:w-auto h-11 px-8 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all rounded-full text-base">
+                      {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Analyze HTML"}
+                      {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </TabsContent>
+
+            <TabsContent value="bulk" className="mt-0 focus-visible:ring-0">
+              <div className="space-y-6 p-6 sm:p-10">
+                <div
+                  className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300
+                    ${isDragging ? 'border-primary bg-primary/5 scale-[0.99]' : 'border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/30'}`}
+                  onDrop={handleDrop}
+                  onDragOver={(e) => handleDragEvents(e, true)}
+                  onDragEnter={(e) => handleDragEvents(e, true)}
+                  onDragLeave={(e) => handleDragEvents(e, false)}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <div className="bg-primary/10 p-4 rounded-full inline-block mb-4">
+                    <UploadCloud className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Upload Bulk List</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    Drag & drop a .txt or .csv file containing URLs, or click to browse.
+                  </p>
+                  <input id="file-upload" type="file" className="hidden" accept=".txt,.csv" onChange={handleFileChange} />
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-muted-foreground/20"></span>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or paste manually</span>
+                  </div>
+                </div>
+
+                <Textarea
+                  placeholder="https://example.com/property/1..."
+                  className="min-h-[150px] font-mono text-sm border-muted-foreground/20 focus:border-primary/50 bg-white/50"
+                  value={bulkUrls}
+                  onChange={(e) => setBulkUrls(e.target.value)}
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleBulkSubmit} disabled={isLoading} className="w-full sm:w-auto h-11 px-8 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all rounded-full text-base">
+                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Process Batch"}
+                    {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-              <Textarea 
-                placeholder="Or paste a list of URLs (one per line)" 
-                className="min-h-[150px]"
-                value={bulkUrls}
-                onChange={(e) => setBulkUrls(e.target.value)}
-              />
-               <Button onClick={handleBulkSubmit} disabled={isLoading} className="w-full sm:w-auto">
-                 {isLoading ? <Loader2 className="animate-spin" /> : "Start Bulk Scrape"}
-                 <ArrowRight className="ml-2 h-4 w-4" />
-               </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {(isLoading || results.length > 0) && (
           <div className="mt-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
               <h2 className="text-2xl font-bold">Scraping Results</h2>
               {results.length > 0 && !isLoading && (
-                 <div className="flex gap-2">
+                <div className="flex gap-2">
                   <Button variant="outline" onClick={() => downloadJson(filteredResults, 'properties')}>Export JSON</Button>
                   <Button variant="outline" onClick={() => downloadCsv(filteredResults, 'properties')}>Export CSV</Button>
                   <Button variant="outline" onClick={() => downloadExcel(filteredResults, 'properties')}>Export Excel</Button>
-                  <Button variant="destructive" size="sm" onClick={() => setResults([])}><Trash2 className="mr-2 h-4 w-4"/>Clear Results</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setResults([])}><Trash2 className="mr-2 h-4 w-4" />Clear Results</Button>
                 </div>
               )}
             </div>
@@ -351,9 +399,9 @@ export function MainPage() {
                     <div className="mt-2 text-sm text-muted-foreground">
                       Showing {filteredResults.length} of {results.length} properties
                       {(searchQuery || selectedPropertyType !== 'all') && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             setSearchQuery('');
                             setSelectedPropertyType('all');
@@ -367,7 +415,7 @@ export function MainPage() {
                   </div>
                 )}
 
-                <ResultsTable 
+                <ResultsTable
                   properties={filteredResults}
                   onSave={handleSaveProperty}
                   savingPropertyId={savingPropertyId}

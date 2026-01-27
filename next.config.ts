@@ -3,17 +3,17 @@ import path from 'path'
 
 const nextConfig: NextConfig = {
   // Optimized for both Vercel and Firebase App Hosting deployment
-  
+
   // Disable ESLint during production builds for faster deployment
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   // TypeScript configuration for better module resolution
   typescript: {
     ignoreBuildErrors: true, // Temporarily ignore for deployment setup
   },
-  
+
   // Configure images for SSR and external sources
   images: {
     remotePatterns: [
@@ -48,22 +48,30 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'fr-toolv2.firebasestorage.app',
+      },
+      {
+        protocol: 'https',
+        hostname: 'housing-images.n7net.in',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.n7net.in',
       }
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  
+
   // Increase body size limit for scraping large HTML
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
       allowedOrigins: [
         'localhost:3000',
-        'localhost:9002', 
+        'localhost:9002',
         'localhost:9004',
-        'fr-toolv2.web.app', 
+        'fr-toolv2.web.app',
         'fr-toolv2.firebaseapp.com',
         '*.firebaseapp.com',
         '*.a.run.app',
@@ -73,10 +81,10 @@ const nextConfig: NextConfig = {
       ].filter(Boolean)
     }
   },
-  
+
   // Enable output file tracing for deployment optimization
   output: 'standalone',
-  
+
   // Webpack configuration for better module resolution in Firebase App Hosting
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     // Ensure path aliases work in all environments
@@ -84,7 +92,7 @@ const nextConfig: NextConfig = {
       ...config.resolve.alias,
       '@': path.join(__dirname, 'src'),
     };
-    
+
     // Polyfill Node.js modules for the browser
     if (!isServer) {
       config.resolve.fallback = {
@@ -98,7 +106,7 @@ const nextConfig: NextConfig = {
         crypto: false,
       };
     }
-    
+
     // Optimize bundle for Firebase App Hosting
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
@@ -114,7 +122,7 @@ const nextConfig: NextConfig = {
         },
       };
     }
-    
+
     return config;
   },
 

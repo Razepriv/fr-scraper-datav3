@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { Header } from '@/components/app/header';
@@ -23,14 +23,14 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseProvider>
-          <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 dark:from-slate-900 dark:via-blue-950 dark:to-indigo-950">
-              <Header />
-              <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8">
-                {children}
-              </main>
-              <footer className="text-center p-4 text-sm text-muted-foreground">
-                PropScrapeAI &copy; {new Date().getFullYear()}
-              </footer>
+          <div className="flex flex-col min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50 via-slate-50 to-white dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 transition-colors duration-500">
+            <Header />
+            <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              {children}
+            </main>
+            <footer className="text-center p-6 text-sm text-muted-foreground/60 border-t border-border/40 backdrop-blur-sm">
+              PropScrapeAI &copy; {new Date().getFullYear()}
+            </footer>
           </div>
           <Toaster />
         </FirebaseProvider>

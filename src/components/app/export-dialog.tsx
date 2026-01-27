@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { type Property } from '@/lib/types';
 import { type ExportFilter } from '@/lib/db';
 import { getFilteredPropertiesAction, getExportStatsAction } from '@/app/actions';
-import { downloadFilteredJson, downloadFilteredCsv, downloadFilteredExcel, generateFilteredFilename } from '@/lib/export';
+import { downloadFilteredJson, downloadFilteredCsv, downloadFilteredExcel, downloadPremiumCsv, generateFilteredFilename } from '@/lib/export';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,10 +41,10 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
       setStats(exportStats);
     } catch (error) {
       console.error('Filter error:', error);
-      toast({ 
-        variant: "destructive", 
-        title: "Filter Error", 
-        description: `Failed to apply filters. Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      toast({
+        variant: "destructive",
+        title: "Filter Error",
+        description: `Failed to apply filters. Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
       // Reset to all properties on error
       setFilteredProperties(allProperties);
@@ -72,7 +72,7 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
     return parts.length > 0 ? parts.join(', ') : 'All properties';
   };
 
-  const handleExport = async (format: 'json' | 'csv' | 'excel') => {
+  const handleExport = async (format: 'json' | 'csv' | 'excel' | 'premium-csv') => {
     if (filteredProperties.length === 0) {
       toast({ variant: "destructive", title: "No Data", description: "No properties match the current filters." });
       return;
@@ -97,14 +97,17 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
         case 'excel':
           await downloadFilteredExcel(filteredProperties, filename, filterInfo);
           break;
+        case 'premium-csv':
+          await downloadPremiumCsv(filteredProperties, filename);
+          break;
       }
-      toast({ title: "Success", description: `${format.toUpperCase()} export completed successfully! File: ${filename}.${format === 'excel' ? 'xlsx' : format}` });
+      toast({ title: "Success", description: `${format.toUpperCase()} export completed successfully! File: ${filename}` });
     } catch (error) {
       console.error('Export error:', error);
-      toast({ 
-        variant: "destructive", 
-        title: "Export Failed", 
-        description: `Failed to export ${format.toUpperCase()} file. Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: `Failed to export ${format.toUpperCase()} file. Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
   };
@@ -192,12 +195,12 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Select value={filter.propertyType || ''} onValueChange={(value) => handleFilterChange('propertyType', value)}>
+                  <Select value={filter.propertyType || 'all'} onValueChange={(value) => handleFilterChange('propertyType', value === 'all' ? '' : value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="All property types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All property types</SelectItem>
+                      <SelectItem value="all">All property types</SelectItem>
                       {uniquePropertyTypes.map(type => (
                         <SelectItem key={type} value={type}>{type}</SelectItem>
                       ))}
@@ -345,21 +348,29 @@ export function ExportDialog({ allProperties }: ExportDialogProps) {
             Ready to export {filteredProperties.length} properties
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => handleExport('json')}
               disabled={filteredProperties.length === 0}
             >
               Export JSON
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => handleExport('csv')}
               disabled={filteredProperties.length === 0}
             >
               Export CSV
             </Button>
-            <Button 
+            <Button
+              variant="secondary"
+              onClick={() => handleExport('premium-csv')}
+              disabled={filteredProperties.length === 0}
+              className="hidden sm:inline-flex"
+            >
+              ✨ Premium CSV
+            </Button>
+            <Button
               onClick={() => handleExport('excel')}
               disabled={filteredProperties.length === 0}
             >

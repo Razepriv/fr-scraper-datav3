@@ -1,18 +1,18 @@
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+import { genkit } from 'genkit';
+import { openAI, gpt4o, gpt4oMini } from 'genkitx-openai';
 
-// Try multiple possible environment variable names for the API key
-const apiKey = process.env.GEMINI_API_KEY || 
-               process.env.GOOGLE_GENAI_API_KEY || 
-               process.env.GOOGLE_API_KEY;
+// Get OpenAI API key from environment
+const apiKey = process.env.OPENAI_API_KEY;
 
 if (!apiKey) {
-  console.error('❌ No API key found! Please set GEMINI_API_KEY, GOOGLE_GENAI_API_KEY, or GOOGLE_API_KEY');
+  console.error('❌ No OpenAI API key found! Please set OPENAI_API_KEY in your environment variables');
 }
 
 export const ai = genkit({
-  plugins: [googleAI({
-    apiKey: apiKey,
-  })],
-  model: 'googleai/gemini-2.0-flash',
+  plugins: [
+    openAI({
+      apiKey: apiKey,
+    })
+  ],
+  model: gpt4oMini,
 });
