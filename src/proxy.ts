@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // This middleware no longer performs authentication checks.
   // It simply allows all requests to proceed.
   return NextResponse.next();

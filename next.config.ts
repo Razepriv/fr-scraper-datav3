@@ -67,31 +67,33 @@ const nextConfig: NextConfig = {
   // Webpack configuration for better module resolution in Firebase App Hosting
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     // Ensure path aliases work in all environments
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': path.join(__dirname, 'src'),
-    };
-
-    // Polyfill Node.js modules for the browser
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        child_process: false,
-        worker_threads: false,
-        perf_hooks: false,
-        os: false,
-        crypto: false,
+    if (config.resolve) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@': path.join(process.cwd(), 'src'),
       };
+
+      // Polyfill Node.js modules for the browser
+      if (!isServer) {
+        config.resolve.fallback = {
+          ...config.resolve.fallback,
+          fs: false,
+          path: false,
+          child_process: false,
+          worker_threads: false,
+          perf_hooks: false,
+          os: false,
+          crypto: false,
+        };
+      }
     }
 
     // Optimize bundle for Firebase App Hosting
-    if (!dev && !isServer) {
+    if (!dev && !isServer && config.optimization) {
       config.optimization.splitChunks = {
-        ...config.optimization.splitChunks,
+        ...(config.optimization.splitChunks || {}),
         cacheGroups: {
-          ...config.optimization.splitChunks.cacheGroups,
+          ...((config.optimization.splitChunks && typeof config.optimization.splitChunks === 'object' && 'cacheGroups' in config.optimization.splitChunks ? config.optimization.splitChunks.cacheGroups : {}) || {}),
           firebase: {
             test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
             name: 'firebase',
@@ -99,7 +101,7 @@ const nextConfig: NextConfig = {
             priority: 30,
           },
         },
-      };
+      } as any;
     }
 
     return config;
@@ -107,7 +109,7 @@ const nextConfig: NextConfig = {
 
   // Environment variables validation
   env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+    CUSTOM_KEY: process.env.CUSTOM_KEY || "",
   }
 }
 
