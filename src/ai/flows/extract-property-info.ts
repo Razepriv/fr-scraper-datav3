@@ -8,8 +8,9 @@
  * - ExtractPropertyInfoOutput - The return type for the extractPropertyInfo function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { cleanHtmlForAi } from '@/lib/html-cleaner';
 
 const ExtractedPropertySchema = z.object({
   title: z.string().describe('The main title of the property listing.'),
@@ -66,19 +67,34 @@ export async function extractPropertyInfo(
 
 const prompt = ai.definePrompt({
   name: 'extractPropertyInfoPrompt',
-  input: {schema: ExtractPropertyInfoInputSchema},
-  output: {schema: ExtractPropertyInfoOutputSchema},
-  prompt: `You are an expert at extracting structured data from web pages. Analyze the following HTML content from a real estate website and extract the details for ALL properties listed on the page.
+  input: { schema: ExtractPropertyInfoInputSchema },
+  output: { schema: ExtractPropertyInfoOutputSchema },
+  prompt: `You are an expert at extracting structured data from web pages. Analyze the following HTML content from a real estate website.
 
-**CRITICAL: BE AGGRESSIVE IN FINDING PROPERTIES**
-- Look for ANY content that could be a property listing, even if the structure is unusual
-- Property information might be in: articles, divs, sections, cards, listings, rows, or any container
-- Price information might be in various formats: "$1,500", "AED 120,000", "€2,000/month", "Price: $500K"
-- Titles might be in: h1, h2, h3, h4, span, div, a tags, or data attributes
-- Locations might be labeled as: address, location, area, city, neighborhood, region
-- If you find ANY property-related content (title, price, location), create a property entry even if other fields are missing
+**STEP 1: DETERMINE PAGE TYPE**
+First, look at the content structure to decide if this is:
+A) A **Single Property Listing** (detailed view of one specific property)
+B) A **Property List/Search Results** (multiple cards/rows of different properties)
 
-**PROPERTY DETECTION PATTERNS:**
+**STEP 2: EXTRACTION RULES**
+
+**IF (A) SINGLE PROPERTY LISTING:**
+- Extract **ONLY** the main property details.
+- **CRITICAL:** IGNORE and DO NOT extract properties from sections labeled:
+  - "Related Properties"
+  - "Similar Listings"
+  - "People also viewed"
+  - "Nearby properties"
+  - "Recently viewed"
+  - "More from this agent"
+- The main property usually has the largest title, most photos, and detailed description.
+- Returns an array containing ONLY that one main property.
+
+**IF (B) PROPERTY LIST/SEARCH RESULTS:**
+- Extract **ALL** properties listed in the search results or list.
+- Ignore navigation/footer links, but catch every card in the main grid/list.
+
+**PROPERTY DETECTION PATTERNS (For the valid targets):**
 - Look for keywords: "apartment", "villa", "house", "property", "room", "studio", "bedroom", "bathroom"
 - Look for price indicators: currency symbols ($, €, £, AED, etc.), "rent", "sale", "price", "/month", "/year"
 - Look for location indicators: city names, street addresses, postal codes, area names
@@ -107,8 +123,6 @@ const prompt = ai.definePrompt({
 - For all array fields (like 'features'), if no information is found, return an empty array [].
 - Extract contact details like phone numbers and emails for the listed person or agency.
 
-**IMPORTANT: If you find ANY property-related content, create at least one property entry. Do not return an empty array unless the HTML truly contains no property information whatsoever.**
-
 HTML Content:
 \`\`\`html
 {{{htmlContent}}}
@@ -125,17 +139,22 @@ const extractPropertyInfoFlow = ai.defineFlow(
   },
   async input => {
     console.log(`🤖 Starting AI property extraction flow...`);
-    console.log(`📄 HTML content length: ${input.htmlContent.length}`);
-    
+    console.log(`📄 Original HTML content length: ${input.htmlContent.length}`);
+
+    // Clean HTML to reduce token usage
+    const cleanedHtml = cleanHtmlForAi(input.htmlContent);
+    console.log(`✨ Cleaned HTML content length: ${cleanedHtml.length} (Saved ${Math.round((1 - cleanedHtml.length / input.htmlContent.length) * 100)}%)`);
+
     try {
       console.log(`🔧 Calling AI prompt with model...`);
-      const {output} = await prompt(input);
+      // Use cleaned HTML for the prompt
+      const { output } = await prompt({ htmlContent: cleanedHtml });
       console.log(`📊 AI prompt response:`, {
         hasOutput: !!output,
         outputType: typeof output,
         propertiesCount: output?.properties?.length || 0
       });
-      
+
       const result = output ?? { properties: [] };
       console.log(`✅ AI extraction flow completed with ${result.properties.length} properties`);
       return result;
@@ -147,13 +166,13 @@ const extractPropertyInfoFlow = ai.defineFlow(
           message: error.message,
           stack: error.stack
         });
-        
+
         // If it's a JSON parsing error, it might be due to API quota or key issues
         if (error.message.includes('Unexpected token') || error.message.includes('JSON')) {
           console.error("🚨 JSON parsing error detected - likely AI API response issue");
           console.error("🔧 Checking API key availability:", {
-            hasGeminiKey: !!process.env.GEMINI_API_KEY,
-            keyPreview: process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.substring(0, 10)}...` : 'Not found'
+            hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+            keyPreview: process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 10)}...` : 'Not found'
           });
         }
       }

@@ -17,10 +17,10 @@ export async function getHistory(): Promise<HistoryEntry[]> {
 
 export async function savePropertiesToDb(newProperties: Property[]): Promise<void> {
     console.log(`🔄 Starting EFFICIENT save process for ${newProperties.length} properties`);
-    
+
     // EFFICIENT APPROACH: Save each property individually using updateProperty
     // This avoids loading and re-saving all existing properties
-    
+
     const results = [];
     for (const property of newProperties) {
         try {
@@ -32,10 +32,10 @@ export async function savePropertiesToDb(newProperties: Property[]): Promise<voi
             results.push({ success: false, id: property.id, error });
         }
     }
-    
+
     const successCount = results.filter(r => r.success).length;
     console.log(`✅ Successfully saved ${successCount}/${newProperties.length} properties using efficient method`);
-    
+
     revalidatePath('/database');
 }
 
@@ -58,10 +58,10 @@ export async function bulkDeleteProperties(propertyIds: string[]): Promise<{ del
 export async function deleteAllProperties(): Promise<number> {
     const properties = await database.getAllProperties();
     const count = properties.length;
-    
+
     await database.saveProperties([]);
     revalidatePath('/database');
-    
+
     return count;
 }
 
@@ -69,13 +69,13 @@ export async function deleteFilteredProperties(filter: ExportFilter): Promise<{ 
     const allProperties = await database.getAllProperties();
     const filteredProperties = await getFilteredProperties(filter);
     const filteredIds = new Set(filteredProperties.map(p => p.id));
-    
+
     const remainingProperties = allProperties.filter(p => !filteredIds.has(p.id));
     const deletedCount = allProperties.length - remainingProperties.length;
-    
+
     await database.saveProperties(remainingProperties);
     revalidatePath('/database');
-    
+
     return { deletedCount, remainingCount: remainingProperties.length };
 }
 
@@ -107,7 +107,7 @@ export interface ExportFilter {
 
 export async function getFilteredProperties(filter?: ExportFilter): Promise<Property[]> {
     const properties = await database.getAllProperties();
-    
+
     if (!filter) {
         return properties;
     }
@@ -119,7 +119,7 @@ export async function getFilteredProperties(filter?: ExportFilter): Promise<Prop
             const startDate = new Date(filter.startDate);
             if (propertyDate < startDate) return false;
         }
-        
+
         if (filter.endDate) {
             const propertyDate = new Date(property.scraped_at);
             const endDate = new Date(filter.endDate);
@@ -136,11 +136,11 @@ export async function getFilteredProperties(filter?: ExportFilter): Promise<Prop
         // Location filtering (city, county, or location field)
         if (filter.location) {
             const searchLocation = filter.location.toLowerCase();
-            const locationMatch = 
-                (property.location?.toLowerCase().includes(searchLocation)) ||
-                (property.city?.toLowerCase().includes(searchLocation)) ||
-                (property.county?.toLowerCase().includes(searchLocation)) ||
-                (property.neighborhood?.toLowerCase().includes(searchLocation));
+            const locationMatch =
+                (property.location?.toLowerCase() || '').includes(searchLocation) ||
+                (property.city?.toLowerCase() || '').includes(searchLocation) ||
+                (property.county?.toLowerCase() || '').includes(searchLocation) ||
+                (property.neighborhood?.toLowerCase() || '').includes(searchLocation);
             if (!locationMatch) return false;
         }
 
@@ -157,13 +157,13 @@ export async function getFilteredProperties(filter?: ExportFilter): Promise<Prop
 
         return true;
     });
-    
+
     return filteredResults;
 }
 
 export async function getFilteredHistory(filter?: { startDate?: string; endDate?: string; type?: string }): Promise<HistoryEntry[]> {
     const history = await database.getAllHistory();
-    
+
     if (!filter) {
         return history;
     }
@@ -175,7 +175,7 @@ export async function getFilteredHistory(filter?: { startDate?: string; endDate?
             const startDate = new Date(filter.startDate);
             if (entryDate < startDate) return false;
         }
-        
+
         if (filter.endDate) {
             const entryDate = new Date(entry.date);
             const endDate = new Date(filter.endDate);
